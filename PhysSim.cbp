@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="PhysSim" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Linux">
+				<Option platforms="Unix;" />
+				<Option output="bin/Linux/PhysSim" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Linux/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-fpermissive" />
+					<Add directory="include" />
+					<Add directory="/usr/include/opencv2" />
+					<Add directory="/usr/include/opencv" />
+				</Compiler>
+				<Linker>
+					<Add option="-lncurses" />
+					<Add option="-lglfw3" />
+					<Add option="-lm" />
+					<Add option="-lGL" />
+					<Add option="-lGLU" />
+					<Add option="-lX11" />
+					<Add option="-lXxf86vm" />
+					<Add option="-lXrandr" />
+					<Add option="-lpthread" />
+					<Add option="-lXi" />
+					<Add option="-lopencv_calib3d -lopencv_contrib -lopencv_core -lopencv_features2d -lopencv_flann -lopencv_highgui -lopencv_imgproc -lopencv_legacy -lopencv_ml -lopencv_objdetect -lopencv_photo -lopencv_stitching -lopencv_ts -lopencv_video -lopencv_videostab" />
+					<Add directory="/usr/local/lib" />
+				</Linker>
+			</Target>
+			<Target title="Windows">
+				<Option platforms="Windows;" />
+				<Option output="bin/Windows/PhysSim" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Windows/" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-fpermissive" />
+					<Add directory="../Archive/pdc34dll" />
+					<Add directory="include" />
+					<Add directory="../glfw-3.0.4.bin.WIN32/include" />
+				</Compiler>
+				<Linker>
+					<Add library="../Archive/pdc34dll/pdcurses.lib" />
+					<Add library="../glfw-3.0.4.bin.WIN32/lib-mingw/libglfw3.a" />
+					<Add library="../glfw-3.0.4.bin.WIN32/lib-mingw/glfw3dll.a" />
+					<Add library="C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib/OpenGL32.Lib" />
+					<Add library="C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib/GlU32.Lib" />
+					<Add library="C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib/Gdi32.Lib" />
+					<Add library="C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib/User32.Lib" />
+					<Add library="C:/Program Files (x86)/Microsoft SDKs/Windows/v7.0A/Lib/Kernel32.Lib" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add directory="../glfw-3.0.4.bin.WIN32/include" />
+			<Add directory="../glew-1.10.0/include" />
+		</Compiler>
+		<Linker>
+			<Add library="../glew-1.10.0/lib/Release/Win32/glew32.lib" />
+			<Add library="../glew-1.10.0/lib/Release/Win32/glew32s.lib" />
+			<Add library="../glfw-3.0.4.bin.WIN32/lib-mingw/libglfw3.a" />
+			<Add library="../glfw-3.0.4.bin.WIN32/lib-mingw/glfw3dll.a" />
+		</Linker>
+		<Unit filename="include/Calc.h" />
+		<Unit filename="include/Core.h" />
+		<Unit filename="include/GUI.h" />
+		<Unit filename="include/Particle.h" />
+		<Unit filename="include/Rectangle.h" />
+		<Unit filename="include/TUI.h" />
+		<Unit filename="include/UserInterface.h" />
+		<Unit filename="include/Vector.h" />
+		<Unit filename="src/Calc.cpp" />
+		<Unit filename="src/Core.cpp" />
+		<Unit filename="src/GUI.cpp" />
+		<Unit filename="src/Init.cpp" />
+		<Unit filename="src/Particle.cpp" />
+		<Unit filename="src/Rectangle.cpp" />
+		<Unit filename="src/TUI.cpp" />
+		<Unit filename="src/UserInterface.cpp" />
+		<Unit filename="src/Vector.cpp" />
+		<Extensions>
+			<code_completion />
+			<debugger />
+			<DoxyBlocks>
+				<comment_style block="0" line="0" />
+				<doxyfile_project />
+				<doxyfile_build />
+				<doxyfile_warnings />
+				<doxyfile_output />
+				<doxyfile_dot />
+				<general />
+			</DoxyBlocks>
+			<envvars />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
