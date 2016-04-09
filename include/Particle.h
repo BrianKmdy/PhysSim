@@ -10,7 +10,12 @@ class Particle
     private:
         double x;
         double y;
+        double z;
+        double r;
+        double g;
+        double b;
         double mass;
+        double radius;
         Vector velocity;
         std::vector<Vector> variableForces;
         std::vector<Vector> constantForces;
@@ -18,18 +23,26 @@ class Particle
         bool significant = true;
 
     public:
-        Particle(double x = 0.0, double y = 0.0, double mass = 0.0, Vector velocity = Vector());
+        Particle(double x = 0.0, double y = 0.0, double z = 0.0, double mass = 0.0, Vector velocity = Vector(), double radius = 1.0);
+        Particle(Vector position = Vector(), double mass = 0.0, Vector velocity = Vector(), double radius = 1.0);
 
         void setX(double x);
         void setY(double y);
+        void setZ(double z);
         double getX();
         double getY();
+        double getZ();
         void setMass(double mass);
         void setVelocity(Vector velocity);
         void addVariableForce(Vector force);
         void addConstantForce(Vector force);
         double getMass();
         Vector getVelocity();
+        double getRadius();
+        void setColor(double r, double g, double b);
+        double getR();
+        double getG();
+        double getB();
         std::vector<Vector> getVariableForces();
         std::vector<Vector> getConstantForces();
         void removeVariableForces();

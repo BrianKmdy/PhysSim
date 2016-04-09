@@ -1,9 +1,8 @@
 #include "Core.h"
 
-Core::Core(double width, double height, bool bounded, bool interParticleGravity) {
-    bounds = Rectangle(0.0, 0.0, width, height);
-    this->bounded = bounded;
-    this->gravity = gravity;
+#define MIN_DIST 5
+
+Core::Core(double width, double height, bool interParticleGravity) {
     this->interParticleGravity = interParticleGravity;
     entities = std::vector<Particle>();
 
@@ -32,8 +31,12 @@ void Core::setFps(double fps) {
 }
 
 void Core::addEntity(Particle particle) {
-    particle.addConstantForce(Vector(gravity.getMagnitude() * particle.getMass(), gravity.getDirection()));
+    //particle.addConstantForce(Vector(gravity.getMagnitude() * particle.getMass(), gravity.getDirection()));
     entities.push_back(particle);
+}
+
+GUI *Core::getGUI() {
+    return ui;
 }
 
 void Core::run() {
@@ -73,11 +76,17 @@ void Core::run() {
                     for (std::vector<Particle *>::iterator it2 = significantEnts.begin(); it2 < significantEnts.end(); ++it2) {
                         if (&(*it) != &(**it2)) {
                             double dist = distance(*it, **it2);
-                            if (dist > 0.0 && dist < 1.0)
-                                dist = 1.0;
+                            if (dist > 0.0 && dist < MIN_DIST)
+                                dist = MIN_DIST;
 
-                            if (dist > 0.0)
-                                gravity += Vector((G * (double) it->getMass() * (double) (*it2)->getMass()) / pow(dist, 2.0f), direction(*it, **it2));
+                            if (dist > 0.0) {
+                                double magnitude = (G * (double) it->getMass() * (double) (*it2)->getMass()) / pow(dist, 2.0f);
+                                Vector v = Vector((**it2).getX() - (*it).getX(), (**it2).getY() - (*it).getY(), (**it2).getZ() - (*it).getZ());
+                                v = v.normalize();
+                                v = v.product(magnitude);
+
+                                gravity += v;
+                            }
                         }
                     }
 
@@ -91,13 +100,7 @@ void Core::run() {
                 it->think(timeElapsed * rate);
             else
                 it->think((1.0 / fps) * rate);
-
-            if (contains(bounds, *it))
-                entsInFrame++;
         }
-
-        if (entsInFrame == 0)
-            break;
     }
 
     ui->tick(&entities);

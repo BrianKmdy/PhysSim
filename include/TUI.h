@@ -3,7 +3,7 @@
 #ifndef TUI_H
 #define TUI_H
 
-#include <ncurses.h>
+//#include <ncurses.h>
 #include <vector>
 #include <cstdlib>
 
@@ -13,7 +13,7 @@
 class TUI : public UserInterface
 {
     private:
-        WINDOW *win;
+//        WINDOW *win;
 
     public:
         TUI(double wWidth, double wHeight);

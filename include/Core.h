@@ -19,8 +19,6 @@
 class Core
 {
     private:
-        bool bounded;
-        Rectangle bounds;
         bool interParticleGravity;
         std::vector<Particle> entities;
         GUI * ui;
@@ -34,7 +32,7 @@ class Core
         Vector gravity = Vector();
 
     public:
-        Core(double width = 0.0, double height = 0.0, bool bounded = false, bool interParticleGravity = false);
+        Core(double width = 0.0, double height = 0.0, bool interParticleGravity = false);
 
         void setRate(double rate);
         void setG(double G);
@@ -45,6 +43,8 @@ class Core
 
         void addEntity(Particle particle);
         void run();
+
+        GUI *getGUI();
 };
 
 #endif // CORE_H

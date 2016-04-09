@@ -2,10 +2,10 @@
 #define CALC_H
 
 #include "Particle.h"
-#include "Rectangle.h"
+#include <cstdlib>
 
-bool contains(Rectangle r1, Particle p1);
-double direction(Particle p1, Particle p2);
+//double direction(Particle p1, Particle p2);
 double distance(Particle p1, Particle p2);
+int randNeg();
 
 #endif

@@ -1,11 +1,13 @@
 #include <ctime>
+#include <iostream>
 #include <cstdlib>
 
 #include "Particle.h"
 #include "Core.h"
+#include "Calc.h"
 
 using namespace std;
-
+/*
 void freefall() {
     Core core(100.0, 417.0, false);
     core.setGravity(Vector(9.80, 1.5 * M_PI));
@@ -205,29 +207,31 @@ void solar() {
 
     core.run();
 }
-
+*/
 void galaxy() {
     srand(time(NULL));
 
-    Core core(500.0, 400.0, false, true);
-    core.setRate(0.001);
+    Core core(1920, 1080, true);
+    core.setOutput(GUI::OUTPUT_TO_SCREEN);
+    core.setRate(0.1);
 
-    core.addEntity(Particle(250.0, 200.0, 500000));
 
-    const double num_particles = 1024.0;
+    core.addEntity(Particle(0.0, 0.0, 0.0, 500000));
+
+    const double num_particles = 1000.0;
 
     for (double o = 0.0; o < 2; o++) {
         for (double i = 0.0; i < num_particles; i++) {
             double theta = i * ((2.0 * M_PI) / num_particles) + (o * M_PI);
             double radius = i * (150.0 / num_particles) + 25.0;
 
-            double x = 250.0 + (radius * cos(theta));
+            double x = (radius * cos(theta)) * randNeg();
             if (rand() % 2 == 1)
                 x += rand() % 10;
             else
                 x -= rand() % 10;
 
-            double y = 200.0 + (radius * sin(theta));
+            double y = (radius * sin(theta)) * randNeg();
             if (rand() % 2 == 1)
                 y +=rand() % 10;
             else
@@ -237,7 +241,9 @@ void galaxy() {
             double force = (double) (mass * 500000) / pow(radius, 2.0);
             double velocity = sqrt((double) (radius * force) / (double) mass);
 
-            core.addEntity(Particle(x, y, mass, Vector(-velocity, theta + (M_PI / 2.0))));
+            Particle p = Particle(x, y, 0.0, mass, Vector(-velocity, theta + (M_PI / 2.0)));
+            p.setSignificant(false);
+            core.addEntity(p);
         }
     }
 
@@ -247,26 +253,27 @@ void galaxy() {
 void galaxies() {
     srand(time(NULL));
 
-    Core core(500.0, 400.0, false, true);
-    core.setOutput(GUI::OUTPUT_TO_VIDEO);
-    core.setRate(0.2);
+    Core core(1920, 1080, true);
+    core.setOutput(GUI::OUTPUT_TO_SCREEN);
+    core.setRate(0.1);
+    core.getGUI()->setCamera(Vector(0, 0, 200), Vector(0, 0, 0), Vector(0, 1, 0));
 
-    core.addEntity(Particle(200.0, 150.0, 500000, Vector(25.0, 0.0)));
+    core.addEntity(Particle(0.0, 0.0, 0.0, 500000, Vector(25.0, 0.0, 0.0)));
 
-    const double num_particles = 1024.0;
+    const double num_particles = 1000.0;
 
     for (double o = 0.0; o < 2; o++) {
         for (double i = 0.0; i < num_particles; i++) {
             double theta = i * ((2.0 * M_PI) / num_particles) + (o * M_PI);
             double radius = i * (150.0 / num_particles) + 25.0;
 
-            double x = 200.0 + (radius * cos(theta));
+            double x = 0.0 + (radius * cos(theta));
             if (rand() % 2 == 1)
                 x += rand() % 10;
             else
                 x -= rand() % 10;
 
-            double y = 150.0 + (radius * sin(theta));
+            double y = 0.0 + (radius * sin(theta));
             if (rand() % 2 == 1)
                 y +=rand() % 10;
             else
@@ -276,27 +283,27 @@ void galaxies() {
             double force = (mass * 500000) / pow(radius, 2.0);
             double velocity = sqrt((radius * force) / mass);
 
-            Vector v = Vector(-velocity, theta + (M_PI / 2.0));
-            Particle p = Particle(x, y, mass, v + Vector(25.0, 0.0));
+            Vector v = Vector(-velocity, theta + (M_PI / 2.0), 0.0);
+            Particle p = Particle(x, y, 0, mass, v + Vector(25.0, 0.0, 0.0));
             p.setSignificant(false);
             core.addEntity(p);
         }
     }
 
-    core.addEntity(Particle(300.0, 250.0, 500000, Vector(-25.0, 0.0)));
+    core.addEntity(Particle(100.0, 0.0, 100.0, 500000, Vector(-25.0, 0.0, 0.0)));
 
     for (double o = 0.0; o < 2; o++) {
         for (double i = 0.0; i < num_particles; i++) {
             double theta = i * ((2.0 * M_PI) / num_particles) + (o * M_PI);
             double radius = i * (150.0 / num_particles) + 25.0;
 
-            double x = 300.0 + (radius * cos(theta));
+            double x = 100.0 + (radius * cos(theta));
             if (rand() % 2 == 1)
                 x += rand() % 10;
             else
                 x -= rand() % 10;
 
-            double y = 250.0 + (radius * sin(theta));
+            double y = 100.0 + (radius * sin(theta));
             if (rand() % 2 == 1)
                 y +=rand() % 10;
             else
@@ -306,8 +313,8 @@ void galaxies() {
             double force = (mass * 500000) / pow(radius, 2.0);
             double velocity = sqrt((radius * force) / mass);
 
-            Vector v = Vector(-velocity, theta + (M_PI / 2.0));
-            Particle p = Particle(x, y, mass, v + Vector(-25.0, 0.0));
+            Vector v = Vector(-velocity, 0.0, theta + (M_PI / 2.0));
+            Particle p = Particle(x, 0, y, mass, v + Vector(-25.0, 0.0, 0.0));
             p.setSignificant(false);
             core.addEntity(p);
         }
@@ -316,8 +323,53 @@ void galaxies() {
     core.run();
 }
 
+void createGalaxy(Core *core, Vector position, Vector up, double radius, double mass, Vector velocity, double r, double g, double b, double variance, double starMaxRadius, double starMinRadius, int numStars, double G, double minDistance) {
+    Particle c = Particle(position.getX(), position.getY(), position.getZ(), mass, velocity, 60);
+    c.setColor(r, g, b);
+    core->addEntity(c);
+
+    Vector w = up.normalize();
+    Vector u = up.orthogonal();
+    Vector v = w.vProduct(u);
+
+    for (int i = 0; i < numStars; i++) {
+        double theta = ((double) rand() / (double) RAND_MAX) * 2 * M_PI;
+        double rad = ((double) rand() / (double) RAND_MAX) * (radius - minDistance) + minDistance;
+        double starRadius = ((double) rand() / (double) RAND_MAX) * (starMaxRadius - starMinRadius) + starMinRadius;
+
+        Vector uCoord = u.product(cos(theta)).product(rad);
+        Vector vCoord = v.product(sin(theta)).product(rad);
+
+        double starR = r + (((double) rand() / (double) RAND_MAX) * variance) * randNeg();
+        double starG = g + (((double) rand() / (double) RAND_MAX) * variance) * randNeg();
+        double starB = b + (((double) rand() / (double) RAND_MAX) * variance) * randNeg();
+
+        Vector starPosition = position.sum(uCoord.sum(vCoord));
+        double magnitude = sqrt((G * mass) / rad);
+        Vector starVelocity = starPosition.difference(position).vProduct(up).normalize().product(magnitude).sum(velocity);
+        Particle p = Particle(starPosition, 1, starVelocity, starRadius);
+        p.setColor(starR, starG, starB);
+        p.setSignificant(false);
+        core->addEntity(p);
+    }
+}
+
+void galaxies1() {
+    srand(time(NULL));
+
+    Core core(1920, 1080, true);
+    core.setOutput(GUI::OUTPUT_TO_VIDEO);
+    core.setRate(0.2);
+    core.getGUI()->setCamera(Vector(0, 0, 1200), Vector(0, 0, 0), Vector(0, 1, 0));
+
+    createGalaxy(&core, Vector(0, 0, 0), Vector(0, 0, 1), 450, 1000000, Vector(0, 0, 0), 1, 1, 1, 0.3, 2, 5, 100000, 1, 30);
+    createGalaxy(&core, Vector(500, 50, 0), Vector(0, 1, 1), 450, 1000000, Vector(-100, 0, 0), 0.5, 0.5, 1, 0.2, 2, 5, 100000, 1, 30);
+
+    core.run();
+}
+
 int main() {
-    uniform();
+    galaxies1();
 
     return 0;
 }

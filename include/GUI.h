@@ -5,23 +5,33 @@
 #include "UserInterface.h"
 
 #include <GLFW/glfw3.h>
+#include <SOIL.h>
+//#include <stdio.h>
+#include <IL/il.h>
+#include <GL/glut.h>
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv/cv.h>
-#include <opencv2/opencv.hpp>
+struct Sprite {
+    unsigned char *data;
+    int width;
+    int height;
+    int channels;
+};
 
 class GUI : public UserInterface
 {
     private:
         GLFWwindow *win;
 
-        cv::VideoWriter outputVideo;
+        FILE *outputVideo = NULL;
 
         int output;
 
-        double getX(double x);
-        double getY(double y);
+        Sprite particle;
+        //GLuint particle;
+
+        Vector camera = Vector();
+        Vector focus = Vector();
+        Vector up = Vector();
 
     public:
         static const int OUTPUT_TO_VIDEO  = 0;
@@ -29,6 +39,7 @@ class GUI : public UserInterface
 
         GUI(double wWidth, double wHeight);
 
+        void setCamera(Vector camera, Vector focus, Vector up);
         void setOutput(int output);
         void tick(const std::vector<Particle> * entities);
         void drawParticle(Particle particle);

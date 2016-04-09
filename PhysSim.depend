@@ -825,14 +825,10 @@
 	<vector>
 	"Particle.h"
 
-1397581120 /mnt/Primary/Programs/PhysSim/include/GUI.h
+1457045180 /mnt/Primary/Programs/PhysSim/include/GUI.h
 	"Particle.h"
 	"UserInterface.h"
 	<GLFW/glfw3.h>
-	<opencv2/core/core.hpp>
-	<opencv2/highgui/highgui.hpp>
-	<opencv/cv.h>
-	<opencv2/opencv.hpp>
 
 1388549674 /mnt/Primary/Programs/glfw-3.0.4.bin.WIN32/include/GLFW/glfw3.h
 	<stddef.h>
@@ -846,19 +842,19 @@
 	<GL/gl.h>
 	<GL/glu.h>
 
-1391893526 /mnt/Primary/Programs/PhysSim/include/TUI.h
-	<ncurses.h>
+1457045245 /mnt/Primary/Programs/PhysSim/include/TUI.h
 	<vector>
 	<cstdlib>
 	"Particle.h"
 	"UserInterface.h"
 
-1397602741 source:/mnt/Primary/Programs/PhysSim/src/GUI.cpp
+1457045266 source:/mnt/Primary/Programs/PhysSim/src/GUI.cpp
 	"GUI.h"
 	<cstdlib>
 
-1397675565 source:/mnt/Primary/Programs/PhysSim/src/Init.cpp
+1457045478 source:/mnt/Primary/Programs/PhysSim/src/Init.cpp
 	<ctime>
+	<iostream>
 	<cstdlib>
 	"Particle.h"
 	"Core.h"
@@ -869,7 +865,7 @@
 1387663565 source:/mnt/Primary/Programs/PhysSim/src/Rectangle.cpp
 	"Rectangle.h"
 
-1391893543 source:/mnt/Primary/Programs/PhysSim/src/TUI.cpp
+1457045287 source:/mnt/Primary/Programs/PhysSim/src/TUI.cpp
 	"TUI.h"
 	<cmath>
 

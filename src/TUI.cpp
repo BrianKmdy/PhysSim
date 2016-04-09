@@ -6,7 +6,7 @@
 
 TUI::TUI(double wWidth, double wHeight) : UserInterface(wWidth, wHeight)
 {
-    initscr();
+/*    initscr();
     noecho();
     curs_set(0);
 	nl();
@@ -15,23 +15,24 @@ TUI::TUI(double wWidth, double wHeight) : UserInterface(wWidth, wHeight)
     getmaxyx(stdscr, height, width);
 
     win = newwin(height, width, 0, 0);
+    */
 }
 
 void TUI::tick(const std::vector<Particle> * entities) {
-    werase(win);
+//    werase(win);
 
     for (std::vector<Particle>::const_iterator it = entities->begin(); it != entities->end(); ++it)
         drawParticle(*it);
 
-    wnoutrefresh(win);
-    doupdate();
+//    wnoutrefresh(win);
+//    doupdate();
 }
 
 void TUI::drawParticle(Particle particle) {
     int x = round((particle.getX() / wWidth) * width);
     int y = round(height - ((particle.getY() / wHeight) * height) - 1);
 
-    mvwaddch(win, y, x, 'o');
+//    mvwaddch(win, y, x, 'o');
 
     /*
     char buffer[32];
@@ -50,7 +51,7 @@ bool TUI::shouldClose() {
 }
 
 void TUI::terminate() {
-    endwin();
+//    endwin();
 }
 
 bool TUI::returnPressed() {
