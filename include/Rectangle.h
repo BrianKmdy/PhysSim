@@ -11,7 +11,7 @@ class Rectangle : public Particle
         double height;
 
     public:
-        Rectangle(double x = 0.0, double y = 0.0, double width = 0.0, double height = 0.0, double mass = 0.0, Vector velocity = Vector());
+        Rectangle(double x = 0.0, double y = 0.0, double z = 0.0, double width = 0.0, double height = 0.0, double mass = 0.0, Vector velocity = Vector());
 
         void setWidth(double width);
         void setHeight(double height);

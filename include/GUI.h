@@ -4,10 +4,12 @@
 #include "Particle.h"
 #include "UserInterface.h"
 
+#include <cstdio>
+
 #include <GLFW/glfw3.h>
-#include <SOIL.h>
+// #include <SOIL.h>
 //#include <stdio.h>
-#include <IL/il.h>
+// #include <IL/il.h>
 #include <GL/glut.h>
 
 struct Sprite {
@@ -26,7 +28,7 @@ class GUI : public UserInterface
 
         int output;
 
-        Sprite particle;
+        // Sprite particle;
         //GLuint particle;
 
         Vector camera = Vector();
@@ -41,7 +43,7 @@ class GUI : public UserInterface
 
         void setCamera(Vector camera, Vector focus, Vector up);
         void setOutput(int output);
-        void tick(const std::vector<Particle> * entities);
+        void tick(std::vector<Particle> * entities);
         void drawParticle(Particle particle);
         bool shouldClose();
         void terminate();

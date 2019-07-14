@@ -1,6 +1,6 @@
 #include "Rectangle.h"
 
-Rectangle::Rectangle(double x, double y, double width, double height, double mass, Vector velocity) : Particle(x, y, mass, velocity) {
+Rectangle::Rectangle(double x, double y, double z, double width, double height, double mass, Vector velocity) : Particle(x, y, z, mass, velocity) {
     this->width = width;
     this->height = height;
 }
