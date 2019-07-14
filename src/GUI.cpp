@@ -108,7 +108,7 @@ void GUI::setOutput(int output) {
 
     if (output == OUTPUT_TO_VIDEO)
         //outputVideo = popen("ffmpeg -y -f rawvideo -s 1800x1000 -pix_fmt rgb24 -r 30 -i - -vf vflip -an -b:v 10000k test.mp4", "w");
-        outputVideo = popen("ffmpeg -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 30 -i - -vf vflip -an test.mp4", "w");
+        outputVideo = popen("ffmpeg -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 30 -i - -vcodec libx264 -vf vflip -an test1.mp4", "w");
         //outputVideo.open("/home/brian/Desktop/video.avi", CV_FOURCC('D', 'I', 'V', 'X'), 30.0f, cv::Size(1280, 720), true);
 }
 
