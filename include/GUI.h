@@ -7,7 +7,7 @@
 #include <cstdio>
 
 #include <GLFW/glfw3.h>
-// #include <SOIL.h>
+#include <SOIL.h>
 //#include <stdio.h>
 // #include <IL/il.h>
 #include <GL/glut.h>
@@ -28,7 +28,7 @@ class GUI : public UserInterface
 
         int output;
 
-        // Sprite particle;
+        Sprite particle;
         //GLuint particle;
 
         Vector camera = Vector();
