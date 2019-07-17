@@ -2,16 +2,22 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <iomanip>
 
 double cameraAngle = 0;
 double distance = 1000;
 
-GUI::GUI(double wWidth, double wHeight) : UserInterface(wWidth, wHeight)
+GUI::GUI(double wWidth, double wHeight) :
+		UserInterface(wWidth, wHeight),
+		output(0),
+		lastFrameTime(0),
+		lastFrameCount(0)
 {
     if (!glfwInit())
         exit(EXIT_FAILURE);
 
-    win = glfwCreateWindow(1920, 1080, "PhysSim", NULL, NULL);
+    win = glfwCreateWindow(2460, 1240, "PhysSim", NULL, NULL);
+    glfwSetWindowPos(win, 50, 40);
 
     particle.data = SOIL_load_image
     (
@@ -20,96 +26,25 @@ GUI::GUI(double wWidth, double wHeight) : UserInterface(wWidth, wHeight)
         SOIL_LOAD_RGBA
     );
 
-    //        glEnable(GL_LIGHTING);
-    //glEnable(GL_DEPTH_TEST);
-    //glEnable(GL_COLOR_MATERIAL);
-    //glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-    //glEnable(GL_LIGHT0);
-    //glShadeModel(GL_FLAT);
-
-
-    /*
-    glEnable(GL_TEXTURE_2D);
-    //glBindTexture(GL_TEXTURE_2D, 0);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
-    */
-
-    //particle.id = SOIL_create_OGL_texture
-    //(
-    //    particle.data,
-    //    particle.width, particle.height, particle.channels,
-    //    SOIL_CREATE_NEW_ID,
-    //    SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
-    //);
-
-    //particle = SOIL_load_OGL_texture("img/particle.tga", 
-    //                           SOIL_LOAD_AUTO, 
-    //                           SOIL_CREATE_NEW_ID,
-    //                           SOIL_FLAG_POWER_OF_TWO | 
-    //                           SOIL_FLAG_MIPMAPS |
-    //                           SOIL_FLAG_COMPRESS_TO_DXT);
-
-    
-    /*
-    ilInit();
-    ILuint image;// = LoadImage("img/particle.tga");
-    ILboolean success;
-    ilGenImages(1, &image);
-    ilBindImage(image);
-    success = ilLoadImage("img/particle.png");
-
-    if (!win || !success) {
-    //if (!win || !particle.data) {
-        glfwTerminate();
-        exit (EXIT_FAILURE);
-    }
-
-    success = ilConvertImage(IL_RGBA, IL_UNSIGNED_BYTE);
-
-    if (!success) {
-        glfwTerminate();
-        exit (EXIT_FAILURE);
-    }
-
-    glGenTextures(1, &particle);
-    glBindTexture(GL_TEXTURE_2D, particle); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
-    glTexImage2D(GL_TEXTURE_2D, 0, ilGetInteger(IL_IMAGE_BPP), ilGetInteger(IL_IMAGE_WIDTH), ilGetInteger(IL_IMAGE_HEIGHT), 
-    0, ilGetInteger(IL_IMAGE_FORMAT), GL_UNSIGNED_BYTE, ilGetData()); 
-
-    //ilDeleteImages(1, &image);
-
-    //std::cout<< sizeof(particle.data) << std::endl;
-
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 256, 256, 0, GL_RGB, GL_UNSIGNED_BYTE, particle.data);
-
-    //std::cout << particle.width << std::endl;
-    //std::cout<< (int)particle.data[0] << std::endl;
-    //std::cout<< (int)particle.data[1] << std::endl;
-    //std::cout<< (int)particle.data[2] << std::endl;
-    //std::cout<< (int)particle.data[3] << std::endl;
-    //std::cout<< (int)particle.data[4] << std::endl;
-    //std::cout<< (int)particle.data[3000] << std::endl;
-    //std::cout<< (int)particle.data[6] << std::endl;
-    //std::cout<< (int)particle.data[7] << std::endl;
-    */
+    // glEnable(GL_LIGHTING);
+    // glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_COLOR_MATERIAL);
+    // glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+    // glEnable(GL_LIGHT0);
+    // glShadeModel(GL_FLAT);
 
     glfwMakeContextCurrent(win);
+
+    lastFrameTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
 }
 
 void GUI::setOutput(int output) {
     this->output = output;
 
     if (output == OUTPUT_TO_VIDEO)
-        //outputVideo = popen("ffmpeg -y -f rawvideo -s 1800x1000 -pix_fmt rgb24 -r 30 -i - -vf vflip -an -b:v 10000k test.mp4", "w");
-        outputVideo = popen("ffmpeg -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 30 -i - -vcodec libx264 -vf vflip -an test1.mp4", "w");
-        //outputVideo.open("/home/brian/Desktop/video.avi", CV_FOURCC('D', 'I', 'V', 'X'), 30.0f, cv::Size(1280, 720), true);
+        // outputVideo = popen("ffmpeg -y -f rawvideo -s 1800x1000 -pix_fmt rgb24 -r 30 -i - -vf vflip -an -b:v 10000k test.mp4", "w");
+        outputVideo = popen("ffmpeg.exe -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 60 -i - -vcodec libx264 -vf vflip -an test.mp4", "w");
+        // outputVideo.open("C:\\Users\\brian\\Desktop\\out.avi", CV_FOURCC('D', 'I', 'V', 'X'), 30.0f, cv::Size(1280, 720), true);
 }
 
 void GUI::setCamera(Vector camera, Vector focus, Vector up) {
@@ -156,62 +91,43 @@ void GUI::tick(std::vector<Particle> * entities) {
     float theta = atan2(radVector.getY(), radVector.getX()) * (180.0 / M_PI);
     float phi = acos(camera.getZ() / radVector.getMagnitude()) * (180.0 / M_PI);
     
-    glEnable(GL_BLEND);
-    glEnable(GL_ALPHA_TEST);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexEnvf(GL_TEXTURE_2D,GL_TEXTURE_ENV_MODE,GL_DECAL);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, particle.data);
-    glEnable(GL_TEXTURE_2D);
+    // glEnable(GL_BLEND);
+    // glEnable(GL_ALPHA_TEST);
+    // glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    // glTexEnvf(GL_TEXTURE_2D,GL_TEXTURE_ENV_MODE,GL_DECAL);
+    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, particle.data);
+    // glEnable(GL_TEXTURE_2D);
     //glBindTexture(GL_TEXTURE_2D, particle);
     
     //glColor3f(0.0, 0.0, 0.0);
     for (std::vector<Particle>::iterator it = entities->begin(); it != entities->end(); it++) {
-        /*
-        float modelview[16];
-        int i,j;
-
-        // save the current modelview matrix
-        glPushMatrix();
-
-        // get the current modelview matrix
-        glGetFloatv(GL_MODELVIEW_MATRIX , modelview);
-
-        // undo all rotations
-        // beware all scaling is lost as well 
-        for( i=0; i<3; i++ ) 
-            for( j=0; j<3; j++ ) {
-                if ( i==j )
-                    modelview[i*4+j] = 1.0;
-                else
-                    modelview[i*4+j] = 0.0;
-            }
-
-        // set the modelview with no rotations and scaling
-        glLoadMatrixf(modelview);
-        */
-
         //glRotatef(180, 1, 0, 0);
-        glPushMatrix();
-        glTranslatef(it->getX(), it->getY(), it->getZ());
-        glColor3f(it->getR(), it->getG(), it->getB());
+        // glPushMatrix();
+        // glTranslatef(it->getX(), it->getY(), it->getZ());
+        // glColor3f(it->getR(), it->getG(), it->getB());
         //glRotatef(thetax, 1, 0, 0); 
         //glRotatef(thetay, 0, -1, 0);
         //glRotatef(thetaz, 0, 0, 1);
-        glRotatef(theta, 0, 0, 1);
-        glRotatef(phi, 0, 1, 0);
-        glBegin(GL_QUADS);
-        glTexCoord2f(0.0, 0.0);
-        glVertex3f(-it->getRadius(), -it->getRadius(), 0.f);
-        glTexCoord2f(1.0, 0.0);
-        glVertex3f(it->getRadius(), -it->getRadius(), 0.f);
-        glTexCoord2f(1.0, 1.0);
-        glVertex3f(it->getRadius(), it->getRadius(), 0.f);
-        glTexCoord2f(0.0, 1.0);
-        glVertex3f(-it->getRadius(), it->getRadius(), 0.f);
-        glEnd();
-        glPopMatrix();
+        // glRotatef(theta, 0, 0, 1);
+        // glRotatef(phi, 0, 1, 0);
+        // glBegin(GL_QUADS);
+        // glTexCoord2f(0.0, 0.0);
+        // glVertex3f(-it->getRadius(), -it->getRadius(), 0.f);
+        // glTexCoord2f(1.0, 0.0);
+        // glVertex3f(it->getRadius(), -it->getRadius(), 0.f);
+        // glTexCoord2f(1.0, 1.0);
+        // glVertex3f(it->getRadius(), it->getRadius(), 0.f);
+        // glTexCoord2f(0.0, 1.0);
+        // glVertex3f(-it->getRadius(), it->getRadius(), 0.f);
+        // glEnd();
+        // glPopMatrix();
+
+    	glBegin(GL_POINTS);
+    	   glColor3f(it->getR(), it->getG(), it->getB());
+    	   glVertex3f(it->getX(), it->getY(), it->getZ());
+    	glEnd();
     }
     
     glDisable(GL_TEXTURE_2D);
@@ -238,7 +154,19 @@ void GUI::tick(std::vector<Particle> * entities) {
             fwrite(pixels, 1920*1080*3, 1, outputVideo);
         delete [] pixels;
     }
-    
+    else
+    {
+    	++lastFrameCount;
+
+		std::chrono::milliseconds currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
+		if(currentTime - lastFrameTime > std::chrono::seconds(1))
+		{
+			std::cout << "Fps: " << std::fixed << std::setprecision(2) << static_cast<float>(lastFrameCount) / (currentTime - lastFrameTime).count() * 1000.0 << std::endl;
+
+			lastFrameTime = currentTime;
+			lastFrameCount = 0;
+		}
+    }
 }
 
 void GUI::drawParticle(Particle particle) {
