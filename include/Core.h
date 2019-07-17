@@ -2,8 +2,8 @@
 #define CORE_H
 
 #include <vector>
-#include <sys/time.h>
-#include <unistd.h>
+// #include <sys/time.h>
+// #include <unistd.h>
 
 #include "Particle.h"
 #include "Rectangle.h"

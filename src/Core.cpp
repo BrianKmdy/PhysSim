@@ -1,5 +1,8 @@
 #include "Core.h"
 
+#include <chrono>
+#include <thread>
+
 #define MIN_DIST 5
 
 Core::Core(double width, double height, bool interParticleGravity) {
@@ -40,12 +43,8 @@ GUI *Core::getGUI() {
 }
 
 void Core::run() {
-    for (int i = 0; i < 1000000000; i++) {}
-
-    timeval startTime;
-    gettimeofday(&startTime, NULL);
-    timeval lastTime = startTime;
-    timeval currentTime;
+	std::chrono::nanoseconds startTime =
+		std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
 
     double timeElapsed = 0.0;
 
@@ -55,10 +54,8 @@ void Core::run() {
         if (ui->shouldClose())
             break;
 
-        gettimeofday(&currentTime, NULL);
-
-        timeElapsed = (double) (currentTime.tv_sec - lastTime.tv_sec) + ((double) (currentTime.tv_usec - lastTime.tv_usec) / 1000000.0);
-        lastTime = currentTime;
+		std::chrono::nanoseconds currentTime =
+			std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
 
         int entsInFrame = 0;
 
@@ -97,7 +94,7 @@ void Core::run() {
 
         for (std::vector<Particle>::iterator it = entities.begin(); it < entities.end(); ++it) {
             if (output == GUI::OUTPUT_TO_SCREEN)
-                it->think(timeElapsed * rate);
+                it->think((currentTime - startTime).count() / 1000000000.0f * rate);
             else
                 it->think((1.0 / fps) * rate);
         }

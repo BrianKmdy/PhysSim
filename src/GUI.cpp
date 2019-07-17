@@ -1,5 +1,8 @@
 #include "GUI.h"
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
@@ -16,8 +19,15 @@ GUI::GUI(double wWidth, double wHeight) :
     if (!glfwInit())
         exit(EXIT_FAILURE);
 
-    win = glfwCreateWindow(2460, 1240, "PhysSim", NULL, NULL);
-    glfwSetWindowPos(win, 50, 40);
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+	glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+
+	win = glfwCreateWindow(mode->width, mode->height, "PhysSim", monitor, NULL);
 
     particle.data = SOIL_load_image
     (
@@ -41,10 +51,12 @@ GUI::GUI(double wWidth, double wHeight) :
 void GUI::setOutput(int output) {
     this->output = output;
 
-    if (output == OUTPUT_TO_VIDEO)
-        // outputVideo = popen("ffmpeg -y -f rawvideo -s 1800x1000 -pix_fmt rgb24 -r 30 -i - -vf vflip -an -b:v 10000k test.mp4", "w");
-        outputVideo = popen("ffmpeg.exe -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 60 -i - -vcodec libx264 -vf vflip -an test.mp4", "w");
-        // outputVideo.open("C:\\Users\\brian\\Desktop\\out.avi", CV_FOURCC('D', 'I', 'V', 'X'), 30.0f, cv::Size(1280, 720), true);
+	if (output == OUTPUT_TO_VIDEO)
+	{
+		// outputVideo = popen("ffmpeg -y -f rawvideo -s 1800x1000 -pix_fmt rgb24 -r 30 -i - -vf vflip -an -b:v 10000k test.mp4", "w");
+		// outputVideo = popen("ffmpeg.exe -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 60 -i - -vcodec libx264 -vf vflip -an test.mp4", "w");
+		// outputVideo.open("C:\\Users\\brian\\Desktop\\out.avi", CV_FOURCC('D', 'I', 'V', 'X'), 30.0f, cv::Size(1280, 720), true);
+	}
 }
 
 void GUI::setCamera(Vector camera, Vector focus, Vector up) {
@@ -174,6 +186,9 @@ void GUI::drawParticle(Particle particle) {
 }
 
 bool GUI::shouldClose() {
+	if (glfwGetKey(win, GLFW_KEY_Q) == GLFW_PRESS)
+		return true;
+
     return glfwWindowShouldClose(win);
 }
 
@@ -182,8 +197,10 @@ void GUI::terminate() {
     glfwTerminate();
 
 //    outputVideo.release();
-    if (outputVideo)
-        pclose(outputVideo);
+	if (outputVideo)
+	{
+		// pclose(outputVideo);
+	}
 }
 
 bool GUI::returnPressed() {
@@ -192,3 +209,4 @@ bool GUI::returnPressed() {
     else
         return false;
 }
+

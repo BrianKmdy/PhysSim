@@ -32,7 +32,7 @@ class Vector
         Vector operator+=(const Vector& vector);
 
         Vector difference(Vector vector);
-        Vector sProduct(Vector vector);
+        double dProduct(Vector vector);
         Vector vProduct(Vector vector);
 
         Vector orthogonal();

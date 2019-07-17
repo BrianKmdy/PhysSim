@@ -87,8 +87,8 @@ Vector Vector::difference(Vector vector) {
     return Vector(x - x2, y - y2, z - z2);
 }
 
-Vector Vector::sProduct(Vector vector) {
-    // TODO
+double Vector::dProduct(Vector vector) {
+	return (x * vector.getX()) + (y * vector.getY()) + (z * vector.getZ());
 }
 
 Vector Vector::vProduct(Vector vector) {

@@ -2,8 +2,10 @@
 #include <iostream>
 #include <cstdlib>
 
-#define GLM_FORCE_CXX11
-#include <glm/glm.hpp>
+#include <windows.h>
+
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 #include "Particle.h"
 #include "Core.h"
@@ -43,14 +45,14 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
 void galaxies() {
     srand(time(NULL));
 
-    Core core(2460, 1240, true);
+    Core core(2560, 1440, true);
     core.setOutput(GUI::OUTPUT_TO_SCREEN);
-    core.setRate(0.25);
+    core.setRate(0.00005);
     core.setFps(60);
     core.getGUI()->setCamera(Vector(0, 0, 1200), Vector(0, 0, 0), Vector(0, 1, 0));
 
     // createGalaxy(&core, Vector(-750, 0, 0), Vector(0, 0, 1), 450, 1000000000, Vector(0, 0, 0), 1, 1, 1, 0.3, 2, 5, 100, 1, 30);
-    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 200, 1, 30);
+    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 100, 1, 30);
 
     core.run();
 }
@@ -70,7 +72,8 @@ void binary() {
     core.run();
 }
 
-int main() {
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+{
 	galaxies();
 
     return 0;
