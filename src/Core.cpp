@@ -98,6 +98,8 @@ void Core::run() {
             else
                 it->think((1.0 / fps) * rate);
         }
+
+		startTime = currentTime;
     }
 
     ui->tick(&entities);

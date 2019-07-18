@@ -36,6 +36,12 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
         double magnitude = sqrt((G * mass) / rad);
         Vector starVelocity = starPosition.difference(position).vProduct(up).normalize().product(magnitude).sum(velocity);
         Particle p = Particle(starPosition, 1, starVelocity, starRadius);
+	    if (i % 30 == 0)
+	    {
+	    	Particle p2 = Particle(starPosition, 10000000, starVelocity, starRadius);
+			p2.setColor(255, 0, 0);
+	    	core->addEntity(p2);
+	    }
         p.setColor(starR, starG, starB);
         // p.setSignificant(false);
         core->addEntity(p);
@@ -47,12 +53,12 @@ void galaxies() {
 
     Core core(2560, 1440, true);
     core.setOutput(GUI::OUTPUT_TO_SCREEN);
-    core.setRate(0.00005);
+    core.setRate(0.05);
     core.setFps(60);
     core.getGUI()->setCamera(Vector(0, 0, 1200), Vector(0, 0, 0), Vector(0, 1, 0));
 
     // createGalaxy(&core, Vector(-750, 0, 0), Vector(0, 0, 1), 450, 1000000000, Vector(0, 0, 0), 1, 1, 1, 0.3, 2, 5, 100, 1, 30);
-    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 100, 1, 30);
+    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 250, 1, 30);
 
     core.run();
 }
