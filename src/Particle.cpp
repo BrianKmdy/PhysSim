@@ -34,6 +34,12 @@ void Particle::setMass(double mass) {
     this->mass = mass;
 }
 
+void Particle::setPosition(Vector position) {
+	x = position.getX();
+	y = position.getY();
+	z = position.getZ();
+}
+
 void Particle::setVelocity(Vector velocity) {
     this->velocity = velocity;
 }
@@ -124,16 +130,9 @@ bool Particle::isSignificant() {
     return significant;
 }
 
-void Particle::think(double timeElapsed) {
-    Vector totalForce = Vector();
-
-    for (std::vector<Vector>::iterator it = constantForces.begin(); it != constantForces.end(); ++it)
-        totalForce += *it;
-    for (std::vector<Vector>::iterator it = variableForces.begin(); it != variableForces.end(); ++it)
-        totalForce += *it;
-
+void Particle::think(double timeElapsed, Vector force) {
     //Vector acceleration = Vector(totalForce.getMagnitude() / mass, totalForce.getDirection());
-    Vector acceleration = Vector(totalForce.getX() / mass, totalForce.getY() / mass, totalForce.getZ() / mass);
+    Vector acceleration = Vector(force.getX() / mass, force.getY() / mass, force.getZ() / mass);
 
     x = x + (velocity.getX() * timeElapsed) + (0.5 * (acceleration.getX()) * pow(timeElapsed, 2.0));
     y = y + (velocity.getY() * timeElapsed) + (0.5 * (acceleration.getY()) * pow(timeElapsed, 2.0));
@@ -143,6 +142,4 @@ void Particle::think(double timeElapsed) {
     double vY = velocity.getY() + (acceleration.getY() * timeElapsed);
     double vZ = velocity.getZ() + (acceleration.getZ() * timeElapsed);
     velocity.setComponents(vX, vY, vZ);
-
-    removeVariableForces();
 }

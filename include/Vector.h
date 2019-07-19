@@ -5,14 +5,13 @@
 
 class Vector
 {
-    private:
+    public:
         //double magnitude;
         //double direction;
         double x;
         double y;
         double z;
 
-    public:
         //Vector(double magnitude = 0.0, double direction = 0.0);
         Vector(double x = 0.0, double y = 0.0, double z = 0.0);
 

@@ -46,7 +46,7 @@ public:
 
 	void setCamera(Vector camera, Vector focus, Vector up);
 	void setOutput(int output);
-	void tick(std::vector<Particle> * entities);
+	void tick(Particle* particles, int nParticles);
 	void drawParticle(Particle particle);
 	bool shouldClose();
 	void terminate();

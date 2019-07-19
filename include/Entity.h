@@ -35,7 +35,7 @@ class Entity
         void removeConstantForces();
         int getType();
 
-        virtual void think(double timeElapsed) = 0;
+        virtual void think(double timeElapsed, Vector force) = 0;
 };
 
 #endif // ENTITY_H

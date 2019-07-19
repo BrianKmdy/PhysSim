@@ -12,6 +12,8 @@
 #include "GUI.h"
 #include "Calc.h"
 
+#include "kernel.cuh"
+
 #ifdef __unix__
     #include "TUI.h"
 #endif
@@ -20,8 +22,11 @@ class Core
 {
     private:
         bool interParticleGravity;
-        std::vector<Particle> entities;
+        
         GUI * ui;
+
+		Particle* entities;
+		int nParticles;
 
         int output = GUI::OUTPUT_TO_SCREEN;
         double fps = 30.0;
@@ -41,7 +46,7 @@ class Core
         void setOutput(int output);
         void setFps(double fps);
 
-        void addEntity(Particle particle);
+		void addEntities(Particle* particles, int nParticles);
         void run();
 
         GUI *getGUI();

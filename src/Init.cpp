@@ -2,8 +2,6 @@
 #include <iostream>
 #include <cstdlib>
 
-#include <windows.h>
-
 #define _USE_MATH_DEFINES
 #include <math.h>
 
@@ -12,9 +10,24 @@
 #include "Calc.h"
 
 void createGalaxy(Core *core, Vector position, Vector up, double radius, double mass, Vector velocity, double r, double g, double b, double variance, double starMaxRadius, double starMinRadius, int numStars, double G, double minDistance) {
-    Particle c = Particle(position.getX(), position.getY(), position.getZ(), mass, velocity, 60);
-    c.setColor(r, g, b);
-    core->addEntity(c);
+	Particle* particles;
+
+	cudaError cudaStatus = cudaSetDevice(0);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+		return;
+	}
+
+	cudaStatus = cudaMallocManaged(&particles, (numStars + 1) * sizeof(Particle));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed!");
+		return;
+	}
+
+	particles[0].setPosition(position);
+	particles[0].setVelocity(velocity);
+	particles[0].setMass(mass);
+	particles[0].setColor(r, g, b);
 
     Vector w = up.normalize();
     Vector u = up.orthogonal();
@@ -35,20 +48,26 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
         Vector starPosition = position.sum(uCoord.sum(vCoord));
         double magnitude = sqrt((G * mass) / rad);
         Vector starVelocity = starPosition.difference(position).vProduct(up).normalize().product(magnitude).sum(velocity);
-        Particle p = Particle(starPosition, 1, starVelocity, starRadius);
-	    if (i % 30 == 0)
-	    {
-	    	Particle p2 = Particle(starPosition, 10000000, starVelocity, starRadius);
-			p2.setColor(255, 0, 0);
-	    	core->addEntity(p2);
-	    }
-        p.setColor(starR, starG, starB);
-        // p.setSignificant(false);
-        core->addEntity(p);
+
+		particles[i].setPosition(starPosition);
+		particles[i].setVelocity(starVelocity);
+		
+	    // if (i % 30 == 0)
+	    // {
+		// 	particles[i].setMass(10000000);
+		// 	particles[i].setColor(255, 0, 0);
+	    // }
+		// else
+		{
+			particles[i].setMass(1);
+			particles[i].setColor(starR, starG, starB);
+		}
     }
+
+	core->addEntities(particles, numStars + 1);
 }
 
-void galaxies() {
+void galaxy() {
     srand(time(NULL));
 
     Core core(2560, 1440, true);
@@ -57,30 +76,14 @@ void galaxies() {
     core.setFps(60);
     core.getGUI()->setCamera(Vector(0, 0, 1200), Vector(0, 0, 0), Vector(0, 1, 0));
 
-    // createGalaxy(&core, Vector(-750, 0, 0), Vector(0, 0, 1), 450, 1000000000, Vector(0, 0, 0), 1, 1, 1, 0.3, 2, 5, 100, 1, 30);
-    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 250, 1, 30);
+    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 5000, 1, 30);
 
     core.run();
 }
 
-void binary() {
-    srand(time(NULL));
-
-    Core core(500.0, 400.0, true);
-    core.setOutput(GUI::OUTPUT_TO_SCREEN);
-    core.setRate(0.25);
-    core.setFps(60);
-    core.getGUI()->setCamera(Vector(0, 0, 200), Vector(0, 0, 0), Vector(0, 1, 0));
-
-    core.addEntity(Particle(50, 0, 0, 50000, Vector(0, 10, 10)));
-    core.addEntity(Particle(-50, 0, 0, 50000));
-
-    core.run();
-}
-
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+int main()
 {
-	galaxies();
+	galaxy();
 
     return 0;
 }

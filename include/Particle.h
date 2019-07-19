@@ -7,7 +7,7 @@
 
 class Particle
 {
-    private:
+    public:
         double x;
         double y;
         double z;
@@ -22,7 +22,6 @@ class Particle
 
         bool significant = true;
 
-    public:
         Particle(double x = 0.0, double y = 0.0, double z = 0.0, double mass = 0.0, Vector velocity = Vector(), double radius = 1.0);
         Particle(Vector position = Vector(), double mass = 0.0, Vector velocity = Vector(), double radius = 1.0);
 
@@ -33,6 +32,7 @@ class Particle
         double getY();
         double getZ();
         void setMass(double mass);
+		void setPosition(Vector position);
         void setVelocity(Vector velocity);
         void addVariableForce(Vector force);
         void addConstantForce(Vector force);
@@ -51,7 +51,7 @@ class Particle
         void setSignificant(bool significant);
         bool isSignificant();
 
-        void think(double timeElapsed);
+        void think(double timeElapsed, Vector force);
 };
 
 #endif // PARTICLE_H

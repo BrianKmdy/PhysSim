@@ -65,7 +65,7 @@ void GUI::setCamera(Vector camera, Vector focus, Vector up) {
     this->up = up;
 }
 
-void GUI::tick(std::vector<Particle> * entities) {
+void GUI::tick(Particle* particles, int nParticles) {
     float ratio;
     int width, height;
 
@@ -114,7 +114,8 @@ void GUI::tick(std::vector<Particle> * entities) {
     //glBindTexture(GL_TEXTURE_2D, particle);
     
     //glColor3f(0.0, 0.0, 0.0);
-    for (std::vector<Particle>::iterator it = entities->begin(); it != entities->end(); it++) {
+    for(int i = 0; i < nParticles; i++)
+	{
         //glRotatef(180, 1, 0, 0);
         // glPushMatrix();
         // glTranslatef(it->getX(), it->getY(), it->getZ());
@@ -137,8 +138,8 @@ void GUI::tick(std::vector<Particle> * entities) {
         // glPopMatrix();
 
     	glBegin(GL_POINTS);
-    	   glColor3f(it->getR(), it->getG(), it->getB());
-    	   glVertex3f(it->getX(), it->getY(), it->getZ());
+    	   glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
+    	   glVertex3f(particles[i].getX(), particles[i].getY(), particles[i].getZ());
     	glEnd();
     }
     
