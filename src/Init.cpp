@@ -5,6 +5,8 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <windows.h>
+
 #include "Particle.h"
 #include "Core.h"
 #include "Calc.h"
@@ -33,7 +35,7 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
     Vector u = up.orthogonal();
     Vector v = w.vProduct(u);
 
-    for (int i = 0; i < numStars; i++) {
+    for (int i = 1; i < numStars + 1; i++) {
         double theta = ((double) rand() / (double) RAND_MAX) * 2 * M_PI;
         double rad = ((double) rand() / (double) RAND_MAX) * (radius - minDistance) + minDistance;
         double starRadius = ((double) rand() / (double) RAND_MAX) * (starMaxRadius - starMinRadius) + starMinRadius;
@@ -52,14 +54,14 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
 		particles[i].setPosition(starPosition);
 		particles[i].setVelocity(starVelocity);
 		
-	    // if (i % 30 == 0)
-	    // {
-		// 	particles[i].setMass(10000000);
-		// 	particles[i].setColor(255, 0, 0);
-	    // }
-		// else
+	     // if (i % 100 == 0)
+	     // {
+		 // 	particles[i].setMass(10000000);
+		 // 	particles[i].setColor(255, 0, 0);
+	     // }
+		 // else
 		{
-			particles[i].setMass(1);
+			particles[i].setMass(100000);
 			particles[i].setColor(starR, starG, starB);
 		}
     }
@@ -71,19 +73,28 @@ void galaxy() {
     srand(time(NULL));
 
     Core core(2560, 1440, true);
-    core.setOutput(GUI::OUTPUT_TO_SCREEN);
-    core.setRate(0.05);
+    core.setOutput(GUI::OUTPUT_TO_VIDEO);
+    core.setRate(0.035);
     core.setFps(60);
     core.getGUI()->setCamera(Vector(0, 0, 1200), Vector(0, 0, 0), Vector(0, 1, 0));
 
-    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 5000, 1, 30);
+    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 450, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 10000, 1, 30);
 
     core.run();
 }
 
-int main()
+#ifdef USEWINDOWS
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
 	galaxy();
 
     return 0;
 }
+#else
+int main()
+{
+	galaxy();
+
+	return 0;
+}
+#endif

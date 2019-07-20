@@ -3,6 +3,8 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <windows.h>
+
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
@@ -28,6 +30,8 @@ GUI::GUI(double wWidth, double wHeight) :
 	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
 	win = glfwCreateWindow(mode->width, mode->height, "PhysSim", monitor, NULL);
+	width = mode->width;
+	height = mode->height;
 
     particle.data = SOIL_load_image
     (
@@ -56,6 +60,34 @@ void GUI::setOutput(int output) {
 		// outputVideo = popen("ffmpeg -y -f rawvideo -s 1800x1000 -pix_fmt rgb24 -r 30 -i - -vf vflip -an -b:v 10000k test.mp4", "w");
 		// outputVideo = popen("ffmpeg.exe -y -f rawvideo -s 1920x1080 -pix_fmt rgb24 -r 60 -i - -vcodec libx264 -vf vflip -an test.mp4", "w");
 		// outputVideo.open("C:\\Users\\brian\\Desktop\\out.avi", CV_FOURCC('D', 'I', 'V', 'X'), 30.0f, cv::Size(1280, 720), true);
+		hPipe = CreateNamedPipe("\\\\.\\pipe\\to_ffmpeg",
+			PIPE_ACCESS_OUTBOUND,
+			PIPE_TYPE_BYTE + PIPE_WAIT,
+			1,
+			1000000,
+			100,
+			1000,
+			nullptr);
+
+//		hPipe = CreateFile(TEXT("\\\\.\\pipe\\to_ffmpeg"),
+//			GENERIC_READ | GENERIC_WRITE,
+//			0,
+//			NULL,
+//			CREATE_ALWAYS,
+//			0,
+//			NULL);
+
+
+		ZeroMemory(&si, sizeof(si));
+		si.cb = sizeof(si);
+		ZeroMemory(&pi, sizeof(pi));
+		char buff[1000];
+		sprintf(buff, "../ffmpeg.exe -y -f rawvideo -s %ux%u -pix_fmt rgb24 -r 60 -i \\\\.\\pipe\\to_ffmpeg -vcodec libx264 -vf vflip -an ../test.mp4", width, height);
+		std::cout << buff << std::endl;
+		if (!CreateProcess(NULL, buff, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+		{
+			std::cerr << "Unable to open ffmpeg" << std::endl;
+		}
 	}
 }
 
@@ -161,11 +193,23 @@ void GUI::tick(Particle* particles, int nParticles) {
         //    cv_pixels.at<cv::Vec3b>(y,x)[0] = pixels.at<cv::Vec3b>(height-y-1,x)[2];
         //}
         //outputVideo << cv_pixels;
-        int *pixels = new int[1920 * 1080 * 3];
-        glReadPixels(0, 0, 1920, 1080, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-        if (outputVideo)
-            fwrite(pixels, 1920*1080*3, 1, outputVideo);
+        int *pixels = new int[width * height * 3];
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+		if (hPipe != INVALID_HANDLE_VALUE)
+		{
+			WriteFile(hPipe,
+				pixels,
+				width * height * 3,
+				&dwWritten,
+				NULL);
+		}
+		else
+		{
+			std::cout << "Invalid file handle" << std::endl;
+		}
+
         delete [] pixels;
+
     }
     else
     {
@@ -197,11 +241,18 @@ void GUI::terminate() {
     glfwDestroyWindow(win);
     glfwTerminate();
 
-//    outputVideo.release();
-	if (outputVideo)
+	if (hPipe != INVALID_HANDLE_VALUE)
 	{
-		// pclose(outputVideo);
+		CloseHandle(hPipe);
 	}
+	// pclose(outputVideo);
+
+	// Wait until child process exits.
+	WaitForSingleObject(pi.hProcess, INFINITE);
+
+	// Close process and thread handles. 
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
 }
 
 bool GUI::returnPressed() {

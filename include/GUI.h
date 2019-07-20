@@ -24,6 +24,11 @@ private:
 	GLFWwindow *win;
 
 	FILE *outputVideo = NULL;
+	HANDLE hPipe;
+	DWORD dwWritten;
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+
 
 	int output;
 
