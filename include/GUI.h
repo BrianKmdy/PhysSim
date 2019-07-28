@@ -6,7 +6,9 @@
 
 #include <cstdio>
 #include <chrono>
+#include <string>
 
+#include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <GL/glut.h>
 #include <SOIL.h>
@@ -29,6 +31,8 @@ private:
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
 
+	std::string fileName;
+
 
 	int output;
 
@@ -50,7 +54,8 @@ public:
 	virtual ~GUI() {}
 
 	void setCamera(Vector camera, Vector focus, Vector up);
-	void setOutput(int output);
+	void setOutput(int output, unsigned int fps);
+	void setFileName(std::string fileName);
 	void tick(Particle* particles, int nParticles);
 	void drawParticle(Particle particle);
 	bool shouldClose();

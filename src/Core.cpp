@@ -7,6 +7,12 @@ Core::Core(double width, double height, bool interParticleGravity) {
     this->interParticleGravity = interParticleGravity;
 	this->entities = nullptr;
 	this->nParticles = 0;
+	
+	this->timeStep = 1;
+	this->stepsPerFrame = 1;
+	this->framesPerSecond = 100;
+
+	this->stepCount = 0;
 
     this->ui = new GUI(width, height);
 }
@@ -23,13 +29,21 @@ void Core::setGravity(Vector gravity) {
     this->gravity = gravity;
 }
 
-void Core::setOutput(int output) {
-    this->output = output;
-    ui->setOutput(output);
+void Core::setTimeStep(double timeStep) {
+	this->timeStep = timeStep;
 }
 
-void Core::setFps(double fps) {
-    this->fps = fps;
+void Core::setStepsPerFrame(double stepsPerFrame) {
+	this->stepsPerFrame = stepsPerFrame;
+}
+
+void Core::setFramesPerSecond(double framesPerSecond) {
+	this->framesPerSecond = framesPerSecond;
+}
+
+void Core::setOutput(int output) {
+    this->output = output;
+    ui->setOutput(output, framesPerSecond);
 }
 
 void Core::addEntities(Particle* particles, int nParticles)
@@ -49,7 +63,8 @@ void Core::run() {
     double timeElapsed = 0.0;
 
     while (true) {
-        ui->tick(entities, nParticles);
+		if (stepCount % stepsPerFrame == 0)
+			ui->tick(entities, nParticles);
 
         if (ui->shouldClose())
             break;
@@ -57,7 +72,7 @@ void Core::run() {
 		std::chrono::nanoseconds currentTime =
 			std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
 
-		double timeElapsed = (output == GUI::OUTPUT_TO_SCREEN) ? (currentTime - startTime).count() / 1000000000.0f * rate : (1.0 / fps) * rate;
+		double timeElapsed = (output == GUI::OUTPUT_TO_SCREEN) ? (currentTime - startTime).count() / 1000000000.0f * rate : timeStep;
 
         // Call cuda to think here
 		// Launch a kernel on the GPU with one thread for each element.
@@ -65,9 +80,9 @@ void Core::run() {
 		cudaDeviceSynchronize();
 
 		startTime = currentTime;
+		++stepCount;
     }
 
-	ui->tick(entities, nParticles);
     ui->terminate();
 
     delete ui;

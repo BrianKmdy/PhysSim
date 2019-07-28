@@ -44,6 +44,10 @@ void Particle::setVelocity(Vector velocity) {
     this->velocity = velocity;
 }
 
+void Particle::setRadius(double radius) {
+	this->radius = radius;
+}
+
 void Particle::addVariableForce(Vector force) {
     variableForces.push_back(force);
 }
@@ -80,6 +84,10 @@ double Particle::getG() {
 
 double Particle::getB() {
     return b;
+}
+
+Vector Particle::getPosition() {
+	return Vector(x, y, z);
 }
 
 std::vector<Vector> Particle::getVariableForces() {

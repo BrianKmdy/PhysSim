@@ -8,9 +8,11 @@
 #include <cstdlib>
 #include <iostream>
 #include <iomanip>
+#include <map>
+
+#include "Calc.h"
 
 double cameraAngle = 0;
-double distance = 1000;
 
 GUI::GUI(double wWidth, double wHeight) :
 		UserInterface(wWidth, wHeight),
@@ -22,20 +24,22 @@ GUI::GUI(double wWidth, double wHeight) :
         exit(EXIT_FAILURE);
 
 	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-	const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+	// const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
-	glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-	glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-	glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-	glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+	// glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+	// glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+	// glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+	// glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-	win = glfwCreateWindow(mode->width, mode->height, "PhysSim", monitor, NULL);
-	width = mode->width;
-	height = mode->height;
+	width = 2500;
+	height = 1340;
+
+	win = glfwCreateWindow(width, height, "PhysSim", NULL, NULL);
+	glfwSetWindowPos(win, 30, 50);
 
     particle.data = SOIL_load_image
     (
-        "img/particle.tga",
+        "../img/particle.tga",
         &particle.width, &particle.height, &particle.channels,
         SOIL_LOAD_RGBA
     );
@@ -52,7 +56,7 @@ GUI::GUI(double wWidth, double wHeight) :
     lastFrameTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
 }
 
-void GUI::setOutput(int output) {
+void GUI::setOutput(int output, unsigned int fps) {
     this->output = output;
 
 	if (output == OUTPUT_TO_VIDEO)
@@ -82,7 +86,7 @@ void GUI::setOutput(int output) {
 		si.cb = sizeof(si);
 		ZeroMemory(&pi, sizeof(pi));
 		char buff[1000];
-		sprintf(buff, "../ffmpeg.exe -y -f rawvideo -s %ux%u -pix_fmt rgb24 -r 60 -i \\\\.\\pipe\\to_ffmpeg -vcodec libx264 -vf vflip -an ../test.mp4", width, height);
+		sprintf(buff, "../ffmpeg.exe -y -f rawvideo -s %ux%u -pix_fmt rgb24 -r %u -i \\\\.\\pipe\\to_ffmpeg -vcodec libx264 -vf vflip -an ../%s.mp4", width, height, fps, fileName.c_str());
 		std::cout << buff << std::endl;
 		if (!CreateProcess(NULL, buff, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
 		{
@@ -95,6 +99,10 @@ void GUI::setCamera(Vector camera, Vector focus, Vector up) {
     this->camera = camera;
     this->focus = focus;
     this->up = up;
+}
+
+void GUI::setFileName(std::string fileName) {
+	this->fileName = fileName;
 }
 
 void GUI::tick(Particle* particles, int nParticles) {
@@ -127,52 +135,52 @@ void GUI::tick(Particle* particles, int nParticles) {
     gluLookAt(camera.getX(), camera.getY(), camera.getZ(), focus.getX(), focus.getY(), focus.getZ(), up.getX(), up.getY(), up.getZ());
     //gluLookAt(camera.getX(), camera.getY(), camera.getZ(), focus.getX(), focus.getY(), focus.getZ(), 1, 0, 0);
 
-    //float thetax = atan2(camera.getY() - focus.getY(), camera.getZ() - focus.getZ()) * (180.0 / M_PI) + 90;
-    //float thetay = atan2(camera.getX() - focus.getX(), camera.getZ() - focus.getZ()) * (180.0 / M_PI) + 90;
-    //float thetaz = atan2(camera.getY() - focus.getY(), camera.getX() - focus.getX()) * (180.0 / M_PI);
+    // float thetax = atan2(camera.getY() - focus.getY(), camera.getZ() - focus.getZ()) * (180.0 / M_PI) + 90;
+    // float thetay = atan2(camera.getX() - focus.getX(), camera.getZ() - focus.getZ()) * (180.0 / M_PI) + 90;
+    // float thetaz = atan2(camera.getY() - focus.getY(), camera.getX() - focus.getX()) * (180.0 / M_PI);
 
     Vector radVector = camera.difference(focus);
     float theta = atan2(radVector.getY(), radVector.getX()) * (180.0 / M_PI);
     float phi = acos(camera.getZ() / radVector.getMagnitude()) * (180.0 / M_PI);
     
-    // glEnable(GL_BLEND);
-    // glEnable(GL_ALPHA_TEST);
-    // glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    // glTexEnvf(GL_TEXTURE_2D,GL_TEXTURE_ENV_MODE,GL_DECAL);
-    // glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, particle.data);
-    // glEnable(GL_TEXTURE_2D);
-    //glBindTexture(GL_TEXTURE_2D, particle);
+     glEnable(GL_BLEND);
+
+     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+     glTexEnvf(GL_TEXTURE_2D,GL_TEXTURE_ENV_MODE,GL_DECAL);
+     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, particle.data);
+     glEnable(GL_TEXTURE_2D);
+    // glBindTexture(GL_TEXTURE_2D, particle);
     
     //glColor3f(0.0, 0.0, 0.0);
-    for(int i = 0; i < nParticles; i++)
+	 for (int i = 0; i < nParticles; i++)
 	{
-        //glRotatef(180, 1, 0, 0);
-        // glPushMatrix();
-        // glTranslatef(it->getX(), it->getY(), it->getZ());
-        // glColor3f(it->getR(), it->getG(), it->getB());
-        //glRotatef(thetax, 1, 0, 0); 
-        //glRotatef(thetay, 0, -1, 0);
-        //glRotatef(thetaz, 0, 0, 1);
-        // glRotatef(theta, 0, 0, 1);
-        // glRotatef(phi, 0, 1, 0);
-        // glBegin(GL_QUADS);
-        // glTexCoord2f(0.0, 0.0);
-        // glVertex3f(-it->getRadius(), -it->getRadius(), 0.f);
-        // glTexCoord2f(1.0, 0.0);
-        // glVertex3f(it->getRadius(), -it->getRadius(), 0.f);
-        // glTexCoord2f(1.0, 1.0);
-        // glVertex3f(it->getRadius(), it->getRadius(), 0.f);
-        // glTexCoord2f(0.0, 1.0);
-        // glVertex3f(-it->getRadius(), it->getRadius(), 0.f);
-        // glEnd();
-        // glPopMatrix();
+        // glRotatef(180, 1, 0, 0);
+         glPushMatrix();
+         glTranslatef(particles[i].getX(), particles[i].getY(), particles[i].getZ());
+         // glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
+        // glRotatef(thetax, 1, 0, 0); 
+        // glRotatef(thetay, 0, -1, 0);
+        // glRotatef(thetaz, 0, 0, 1);
+         glRotatef(theta, 0, 0, 1);
+         glRotatef(phi, 0, 1, 0);
+         glBegin(GL_QUADS);
+         glTexCoord2f(0.0, 0.0);
+         glVertex3f(-particles[i].getRadius(), -particles[i].getRadius(), 0.f);
+         glTexCoord2f(1.0, 0.0);
+         glVertex3f(particles[i].getRadius(), -particles[i].getRadius(), 0.f);
+         glTexCoord2f(1.0, 1.0);
+         glVertex3f(particles[i].getRadius(), particles[i].getRadius(), 0.f);
+         glTexCoord2f(0.0, 1.0);
+         glVertex3f(-particles[i].getRadius(), particles[i].getRadius(), 0.f);
+         glEnd();
+         glPopMatrix();
 
-    	glBegin(GL_POINTS);
-    	   glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
-    	   glVertex3f(particles[i].getX(), particles[i].getY(), particles[i].getZ());
-    	glEnd();
+    	// glBegin(GL_POINTS);
+    	//    glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
+    	//    glVertex3f(particles[i].getX(), particles[i].getY(), particles[i].getZ());
+    	// glEnd();
     }
     
     glDisable(GL_TEXTURE_2D);
@@ -193,7 +201,7 @@ void GUI::tick(Particle* particles, int nParticles) {
         //    cv_pixels.at<cv::Vec3b>(y,x)[0] = pixels.at<cv::Vec3b>(height-y-1,x)[2];
         //}
         //outputVideo << cv_pixels;
-        int *pixels = new int[width * height * 3];
+        unsigned char *pixels = new unsigned char[width * height * 3];
         glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 		if (hPipe != INVALID_HANDLE_VALUE)
 		{

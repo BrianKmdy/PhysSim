@@ -29,10 +29,15 @@ class Core
 		int nParticles;
 
         int output = GUI::OUTPUT_TO_SCREEN;
-        double fps = 30.0;
 
         double rate = 1.0;
         double G = 1.0;
+
+		double timeStep;
+		unsigned int stepsPerFrame;
+		unsigned int framesPerSecond;
+
+		unsigned long stepCount;
 
         Vector gravity = Vector();
 
@@ -43,8 +48,11 @@ class Core
         void setG(double G);
         void setGravity(Vector gravity);
 
+		void setTimeStep(double timeStep);
+		void setStepsPerFrame(double stepsPerFrame);
+		void setFramesPerSecond(double framesPerSecond);
+
         void setOutput(int output);
-        void setFps(double fps);
 
 		void addEntities(Particle* particles, int nParticles);
         void run();

@@ -31,9 +31,11 @@ class Particle
         double getX();
         double getY();
         double getZ();
+		Vector getPosition();
         void setMass(double mass);
 		void setPosition(Vector position);
         void setVelocity(Vector velocity);
+		void setRadius(double radius);
         void addVariableForce(Vector force);
         void addConstantForce(Vector force);
         double getMass();
