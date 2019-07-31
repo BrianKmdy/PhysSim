@@ -105,7 +105,7 @@ void GUI::setFileName(std::string fileName) {
 	this->fileName = fileName;
 }
 
-void GUI::tick(Particle* particles, int nParticles) {
+void GUI::tick(Particle* particles, int nParticles, Particle* massiveParticles, int numMassiveParticles) {
     float ratio;
     int width, height;
 
@@ -113,6 +113,7 @@ void GUI::tick(Particle* particles, int nParticles) {
     ratio = width / (float) height;
 
     //glViewport(0, 0, width, height);
+	glClearColor(1, 0, 0, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     //glMatrixMode(GL_PROJECTION);
@@ -159,7 +160,7 @@ void GUI::tick(Particle* particles, int nParticles) {
         // glRotatef(180, 1, 0, 0);
          glPushMatrix();
          glTranslatef(particles[i].getX(), particles[i].getY(), particles[i].getZ());
-         // glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
+         glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
         // glRotatef(thetax, 1, 0, 0); 
         // glRotatef(thetay, 0, -1, 0);
         // glRotatef(thetaz, 0, 0, 1);
@@ -182,6 +183,35 @@ void GUI::tick(Particle* particles, int nParticles) {
     	//    glVertex3f(particles[i].getX(), particles[i].getY(), particles[i].getZ());
     	// glEnd();
     }
+
+	 for (int i = 0; i < numMassiveParticles; i++)
+	 {
+		 // glRotatef(180, 1, 0, 0);
+		 glPushMatrix();
+		 glTranslatef(massiveParticles[i].getX(), massiveParticles[i].getY(), massiveParticles[i].getZ());
+		 glColor3f(massiveParticles[i].getR(), massiveParticles[i].getG(), massiveParticles[i].getB());
+		// glRotatef(thetax, 1, 0, 0); 
+		// glRotatef(thetay, 0, -1, 0);
+		// glRotatef(thetaz, 0, 0, 1);
+		 glRotatef(theta, 0, 0, 1);
+		 glRotatef(phi, 0, 1, 0);
+		 glBegin(GL_QUADS);
+		 glTexCoord2f(0.0, 0.0);
+		 glVertex3f(-massiveParticles[i].getRadius(), -massiveParticles[i].getRadius(), 0.f);
+		 glTexCoord2f(1.0, 0.0);
+		 glVertex3f(massiveParticles[i].getRadius(), -massiveParticles[i].getRadius(), 0.f);
+		 glTexCoord2f(1.0, 1.0);
+		 glVertex3f(massiveParticles[i].getRadius(), massiveParticles[i].getRadius(), 0.f);
+		 glTexCoord2f(0.0, 1.0);
+		 glVertex3f(-massiveParticles[i].getRadius(), massiveParticles[i].getRadius(), 0.f);
+		 glEnd();
+		 glPopMatrix();
+
+		 // glBegin(GL_POINTS);
+		 //    glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
+		 //    glVertex3f(particles[i].getX(), particles[i].getY(), particles[i].getZ());
+		 // glEnd();
+	 }
     
     glDisable(GL_TEXTURE_2D);
 

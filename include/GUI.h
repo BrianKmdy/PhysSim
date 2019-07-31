@@ -56,7 +56,7 @@ public:
 	void setCamera(Vector camera, Vector focus, Vector up);
 	void setOutput(int output, unsigned int fps);
 	void setFileName(std::string fileName);
-	void tick(Particle* particles, int nParticles);
+	void tick(Particle* particles, int nParticles, Particle* massiveParticles, int numMassiveParticles);
 	void drawParticle(Particle particle);
 	bool shouldClose();
 	void terminate();

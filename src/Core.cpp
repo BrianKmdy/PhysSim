@@ -7,6 +7,9 @@ Core::Core(double width, double height, bool interParticleGravity) {
     this->interParticleGravity = interParticleGravity;
 	this->entities = nullptr;
 	this->nParticles = 0;
+
+	this->massiveParticles = nullptr;
+	this->nMassiveParticles = 0;
 	
 	this->timeStep = 1;
 	this->stepsPerFrame = 1;
@@ -46,10 +49,14 @@ void Core::setOutput(int output) {
     ui->setOutput(output, framesPerSecond);
 }
 
-void Core::addEntities(Particle* particles, int nParticles)
-{
+void Core::addEntities(Particle* particles, int nParticles) {
 	this->entities = particles;
 	this->nParticles = nParticles;
+}
+
+void Core::addMassiveParticles(Particle* massiveParticles, int nMassiveParticles) {
+	this->massiveParticles = massiveParticles;
+	this->nMassiveParticles = nMassiveParticles;
 }
 
 GUI *Core::getGUI() {
@@ -57,30 +64,46 @@ GUI *Core::getGUI() {
 }
 
 void Core::run() {
-	std::chrono::nanoseconds startTime =
-		std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
-
-    double timeElapsed = 0.0;
-
     while (true) {
 		if (stepCount % stepsPerFrame == 0)
-			ui->tick(entities, nParticles);
+			ui->tick(entities, nParticles, massiveParticles, nMassiveParticles);
 
         if (ui->shouldClose())
             break;
 
-		std::chrono::nanoseconds currentTime =
-			std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
-
-		double timeElapsed = (output == GUI::OUTPUT_TO_SCREEN) ? (currentTime - startTime).count() / 1000000000.0f * rate : timeStep;
-
         // Call cuda to think here
 		// Launch a kernel on the GPU with one thread for each element.
-		doWork(entities, nParticles, timeElapsed);
+		doWorkHypothetical(entities, nParticles, massiveParticles, nMassiveParticles, timeStep, center, radius);
 		cudaDeviceSynchronize();
 
-		startTime = currentTime;
 		++stepCount;
+
+		if (stepCount == 300)
+		{
+			Particle* massiveParticles;
+			const int numMassiveParticles = 2;
+
+			// Initialize the massive particles
+			if (numMassiveParticles > 0)
+			{
+				cudaError cudaStatus;
+				cudaStatus = cudaMallocManaged(&massiveParticles, numMassiveParticles * sizeof(Particle));
+				if (cudaStatus != cudaSuccess) {
+					fprintf(stderr, "cudaMalloc failed!");
+					return;
+				}
+			}
+
+			for (int i = 0; i < numMassiveParticles; i++) {
+				massiveParticles[i].setPosition(Vector(static_cast<double>(rand() % 200) - 100, static_cast<double>(rand() % 200) - 100, static_cast<double>(rand() % 200) - 100));
+
+				massiveParticles[i].setMass(5.0);
+				massiveParticles[i].setColor(1, 1, 1);
+				massiveParticles[i].setRadius(30);
+			}
+
+			addMassiveParticles(massiveParticles, numMassiveParticles);
+		}
     }
 
     ui->terminate();

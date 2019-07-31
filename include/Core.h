@@ -28,6 +28,9 @@ class Core
 		Particle* entities;
 		int nParticles;
 
+		Particle* massiveParticles;
+		int nMassiveParticles;
+
         int output = GUI::OUTPUT_TO_SCREEN;
 
         double rate = 1.0;
@@ -41,7 +44,7 @@ class Core
 
         Vector gravity = Vector();
 
-    public:
+public:
         Core(double width = 0.0, double height = 0.0, bool interParticleGravity = false);
 
         void setRate(double rate);
@@ -55,9 +58,13 @@ class Core
         void setOutput(int output);
 
 		void addEntities(Particle* particles, int nParticles);
+		void addMassiveParticles(Particle* massiveParticles, int nMassiveParticles);
         void run();
 
         GUI *getGUI();
+
+		v3 center;
+		double radius;
 };
 
 #endif // CORE_H

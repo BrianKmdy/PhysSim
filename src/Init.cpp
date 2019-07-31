@@ -11,6 +11,10 @@
 #include "Core.h"
 #include "Calc.h"
 
+double get_rand(double max) {
+	return ((static_cast<double>(rand()) / RAND_MAX) * 2.0 * max) - max;
+}
+
 void createGalaxy(Core *core, Vector position, Vector up, double radius, double mass, Vector velocity, double r, double g, double b, double variance, double starMaxRadius, double starMinRadius, int numStars, double G, double minDistance) {
 	Particle* particles;
 
@@ -81,15 +85,23 @@ void cloud() {
 	srand(time(NULL));
 
 	Core core(2560, 1440, true);
-	core.getGUI()->setFileName("cloud_25000");
+	core.setTimeStep(0.1);
+	core.setStepsPerFrame(1);
+	core.setFramesPerSecond(100);
+	core.getGUI()->setFileName("medium_50000_r2_1");
 	core.setOutput(GUI::OUTPUT_TO_VIDEO);
-	core.setRate(10.0);
-	core.setFramesPerSecond(60);
-	core.getGUI()->setCamera(Vector(0, 0, 1200), Vector(0, 0, 0), Vector(0, 1, 0));
-	
+	core.getGUI()->setCamera(Vector(0, 0, 2400), Vector(0, 0, 0), Vector(0, 1, 0));
+
+	core.center = { 0, 0, 0 };
+	core.radius = 500;
+
+	double radius = 1000.0;
 
 	Particle* particles;
-	const int numParticles = 25000;
+	const int numParticles = 50000;
+
+//	Particle* massiveParticles;
+//	const int numMassiveParticles = 0;
 
 	cudaError cudaStatus = cudaSetDevice(0);
 	if (cudaStatus != cudaSuccess) {
@@ -97,21 +109,51 @@ void cloud() {
 		return;
 	}
 
-	cudaStatus = cudaMallocManaged(&particles, numParticles * sizeof(Particle));
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMalloc failed!");
-		return;
+	// Initialize the particles
+	if (numParticles > 0)
+	{
+		cudaStatus = cudaMallocManaged(&particles, numParticles * sizeof(Particle));
+		if (cudaStatus != cudaSuccess) {
+			fprintf(stderr, "cudaMalloc failed!");
+			return;
+		}
 	}
 
+//	// Initialize the massive particles
+//	if (numMassiveParticles > 0)
+//	{
+//		cudaStatus = cudaMallocManaged(&massiveParticles, numMassiveParticles * sizeof(Particle));
+//		if (cudaStatus != cudaSuccess) {
+//			fprintf(stderr, "cudaMalloc failed!");
+//			return;
+//		}
+//	}
 
 	for (int i = 1; i < numParticles; i++) {
-		particles[i].setPosition(Vector(static_cast<double>(rand() % 2400) - 1200, static_cast<double>(rand() % 2400) - 1200, static_cast<double>(rand() % 2400) - 1200));
+		while (true) {
+			Vector v = Vector(get_rand(radius), get_rand(radius), get_rand(radius));
+			if (distance(v, Vector(0, 0, 0)) < radius)
+			{
+				particles[i].setPosition(v);
+				break;
+			}
+		}
 
-		particles[i].setMass(1.0 + (static_cast<double>(rand()) / static_cast<double>(RAND_MAX)));
-		particles[i].setColor(0.5 + static_cast<double>(rand()) / static_cast<double>(RAND_MAX) / 2.0, 0.5 + static_cast<double>(rand()) / static_cast<double>(RAND_MAX) / 2.0, 0.8 + static_cast<double>(rand()) / static_cast<double>(RAND_MAX) / 2.0);
+		particles[i].setMass(2.0);
+		particles[i].setColor(0, 0, 0);
+		particles[i].setRadius(20);
 	}
 
+//	for (int i = 0; i < numMassiveParticles; i++) {
+//		massiveParticles[i].setPosition(Vector(static_cast<double>(rand() % 200) - 100, static_cast<double>(rand() % 200) - 100, static_cast<double>(rand() % 200) - 100));
+//
+//		massiveParticles[i].setMass(5.0);
+//		massiveParticles[i].setColor(1, 1, 1);
+//		massiveParticles[i].setRadius(30);
+//	}
+//
 	core.addEntities(particles, numParticles);
+//	core.addMassiveParticles(massiveParticles, numMassiveParticles);
 
 	core.run();
 }
@@ -126,7 +168,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int 
 #else
 int main()
 {
-	galaxy();
+	cloud();
 
 	return 0;
 }
