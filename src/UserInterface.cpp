@@ -1,6 +1,6 @@
 #include "UserInterface.h"
 
-UserInterface::UserInterface(double wWidth, double wHeight, int width, int height)
+UserInterface::UserInterface(float wWidth, float wHeight, int width, int height)
 {
     this->wWidth = wWidth;
     this->wHeight = wHeight;

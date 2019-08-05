@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-TUI::TUI(double wWidth, double wHeight) : UserInterface(wWidth, wHeight)
+TUI::TUI(float wWidth, float wHeight) : UserInterface(wWidth, wHeight)
 {
 /*    initscr();
     noecho();

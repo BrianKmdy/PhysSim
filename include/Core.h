@@ -23,9 +23,9 @@ class Core
     private:
         bool interParticleGravity;
         
-        GUI * ui;
+        GUI* ui;
 
-		Particle* entities;
+		Particle* particles;
 		int nParticles;
 
 		Particle* massiveParticles;
@@ -33,10 +33,7 @@ class Core
 
         int output = GUI::OUTPUT_TO_SCREEN;
 
-        double rate = 1.0;
-        double G = 1.0;
-
-		double timeStep;
+		float timeStep;
 		unsigned int stepsPerFrame;
 		unsigned int framesPerSecond;
 
@@ -45,26 +42,27 @@ class Core
         Vector gravity = Vector();
 
 public:
-        Core(double width = 0.0, double height = 0.0, bool interParticleGravity = false);
+        Core(float width = 0.0, float height = 0.0, bool interParticleGravity = false);
 
-        void setRate(double rate);
-        void setG(double G);
+        void setRate(float rate);
         void setGravity(Vector gravity);
 
-		void setTimeStep(double timeStep);
-		void setStepsPerFrame(double stepsPerFrame);
-		void setFramesPerSecond(double framesPerSecond);
+		void setTimeStep(float timeStep);
+		void setStepsPerFrame(float stepsPerFrame);
+		void setFramesPerSecond(float framesPerSecond);
 
         void setOutput(int output);
 
-		void addEntities(Particle* particles, int nParticles);
+		void addParticles(Particle* particles, int nParticles);
 		void addMassiveParticles(Particle* massiveParticles, int nMassiveParticles);
+		void calcMassiveParticles(float timeElapsed, int step);
+
         void run();
 
         GUI *getGUI();
 
 		v3 center;
-		double radius;
+		float radius;
 };
 
 #endif // CORE_H

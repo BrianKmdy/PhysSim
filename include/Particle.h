@@ -8,43 +8,36 @@
 class Particle
 {
     public:
-        double x;
-        double y;
-        double z;
-        double r;
-        double g;
-        double b;
-        double mass;
-        double radius;
+        float r;
+        float g;
+        float b;
+        float mass;
+        float radius;
+		Vector position[2];
         Vector velocity;
         std::vector<Vector> variableForces;
         std::vector<Vector> constantForces;
 
         bool significant = true;
 
-        Particle(double x = 0.0, double y = 0.0, double z = 0.0, double mass = 0.0, Vector velocity = Vector(), double radius = 1.0);
-        Particle(Vector position = Vector(), double mass = 0.0, Vector velocity = Vector(), double radius = 1.0);
+        Particle(float mass = 0.0, Vector velocity = Vector(), float radius = 1.0);
 
-        void setX(double x);
-        void setY(double y);
-        void setZ(double z);
-        double getX();
-        double getY();
-        double getZ();
-		Vector getPosition();
-        void setMass(double mass);
-		void setPosition(Vector position);
+        float getX(int step);
+        float getY(int step);
+        float getZ(int step);
+        void setMass(float mass);
+		void setInitialPosition(Vector position);
         void setVelocity(Vector velocity);
-		void setRadius(double radius);
+		void setRadius(float radius);
         void addVariableForce(Vector force);
         void addConstantForce(Vector force);
-        double getMass();
+        float getMass();
         Vector getVelocity();
-        double getRadius();
-        void setColor(double r, double g, double b);
-        double getR();
-        double getG();
-        double getB();
+        float getRadius();
+        void setColor(float r, float g, float b);
+        float getR();
+        float getG();
+        float getB();
         std::vector<Vector> getVariableForces();
         std::vector<Vector> getConstantForces();
         void removeVariableForces();
@@ -53,7 +46,7 @@ class Particle
         void setSignificant(bool significant);
         bool isSignificant();
 
-        void think(double timeElapsed, Vector force);
+        void think(float timeElapsed, Vector force);
 };
 
 #endif // PARTICLE_H

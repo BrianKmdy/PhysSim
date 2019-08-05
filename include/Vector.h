@@ -6,23 +6,23 @@
 class Vector
 {
     public:
-        //double magnitude;
-        //double direction;
-        double x;
-        double y;
-        double z;
+        //float magnitude;
+        //float direction;
+        float x;
+        float y;
+        float z;
 
-        //Vector(double magnitude = 0.0, double direction = 0.0);
-        Vector(double x = 0.0, double y = 0.0, double z = 0.0);
+        //Vector(float magnitude = 0.0, float direction = 0.0);
+        Vector(float x = 0.0, float y = 0.0, float z = 0.0);
 
-        //void setMagnitude(double magnitude);
-        //void setDirection(double direction);
-        void setComponents(double x, double y, double z);
-        double getMagnitude();
-        //double getDirection();
-        double getX();
-        double getY();
-        double getZ();
+        //void setMagnitude(float magnitude);
+        //void setDirection(float direction);
+        void setComponents(float x, float y, float z);
+        float getMagnitude();
+        //float getDirection();
+        float getX();
+        float getY();
+        float getZ();
         
         Vector normalize();
 
@@ -31,11 +31,11 @@ class Vector
         Vector operator+=(const Vector& vector);
 
         Vector difference(Vector vector);
-        double dProduct(Vector vector);
+        float dProduct(Vector vector);
         Vector vProduct(Vector vector);
 
         Vector orthogonal();
-        Vector product(double scalar);
+        Vector product(float scalar);
 };
 
 #endif // VECTOR_H

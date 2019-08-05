@@ -20,7 +20,7 @@ struct Sprite {
     int channels;
 };
 
-class GUI : public UserInterface
+class GUI
 {
 private:
 	GLFWwindow *win;
@@ -46,17 +46,23 @@ private:
 	std::chrono::milliseconds lastFrameTime;
 	int lastFrameCount;
 
+	float wWidth;
+	float wHeight;
+	int width;
+	int height;
+	int selectedEntityIndex;
+
 public:
 	static const int OUTPUT_TO_VIDEO  = 0;
 	static const int OUTPUT_TO_SCREEN = 1;
 
-	GUI(double wWidth, double wHeight);
-	virtual ~GUI() {}
+	GUI(float wWidth, float wHeight);
+	~GUI() {}
 
 	void setCamera(Vector camera, Vector focus, Vector up);
 	void setOutput(int output, unsigned int fps);
 	void setFileName(std::string fileName);
-	void tick(Particle* particles, int nParticles, Particle* massiveParticles, int numMassiveParticles);
+	void tick(Particle* particles, int nParticles, Particle* massiveParticles, int numMassiveParticles, int step);
 	void drawParticle(Particle particle);
 	bool shouldClose();
 	void terminate();

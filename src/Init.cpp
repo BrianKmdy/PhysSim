@@ -11,11 +11,11 @@
 #include "Core.h"
 #include "Calc.h"
 
-double get_rand(double max) {
-	return ((static_cast<double>(rand()) / RAND_MAX) * 2.0 * max) - max;
+float get_rand(float max) {
+	return ((static_cast<float>(rand()) / RAND_MAX) * 2.0 * max) - max;
 }
 
-void createGalaxy(Core *core, Vector position, Vector up, double radius, double mass, Vector velocity, double r, double g, double b, double variance, double starMaxRadius, double starMinRadius, int numStars, double G, double minDistance) {
+void createGalaxy(Core *core, Vector position, Vector up, float radius, float mass, Vector velocity, float r, float g, float b, float variance, float starMaxRadius, float starMinRadius, int numStars, float minDistance) {
 	Particle* particles;
 
 	cudaError cudaStatus = cudaSetDevice(0);
@@ -30,7 +30,7 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
 		return;
 	}
 
-	particles[0].setPosition(position);
+	particles[0].setInitialPosition(position);
 	particles[0].setVelocity(velocity);
 	particles[0].setMass(mass);
 	particles[0].setColor(r, g, b);
@@ -40,29 +40,29 @@ void createGalaxy(Core *core, Vector position, Vector up, double radius, double 
     Vector v = w.vProduct(u);
 
     for (int i = 1; i < numStars + 1; i++) {
-        double theta = ((double) rand() / (double) RAND_MAX) * 2 * M_PI;
-        double rad = ((double) rand() / (double) RAND_MAX) * (radius - minDistance) + minDistance;
-        double starRadius = ((double) rand() / (double) RAND_MAX) * (starMaxRadius - starMinRadius) + starMinRadius;
+        float theta = ((float) rand() / (float) RAND_MAX) * 2 * M_PI;
+        float rad = ((float) rand() / (float) RAND_MAX) * (radius - minDistance) + minDistance;
+        float starRadius = ((float) rand() / (float) RAND_MAX) * (starMaxRadius - starMinRadius) + starMinRadius;
 
         Vector uCoord = u.product(cos(theta)).product(rad);
         Vector vCoord = v.product(sin(theta)).product(rad);
 
-        double starR = r + (((double) rand() / (double) RAND_MAX) * variance) * randNeg();
-        double starG = g + (((double) rand() / (double) RAND_MAX) * variance) * randNeg();
-        double starB = b + (((double) rand() / (double) RAND_MAX) * variance) * randNeg();
+        float starR = r + (((float) rand() / (float) RAND_MAX) * variance) * randNeg();
+        float starG = g + (((float) rand() / (float) RAND_MAX) * variance) * randNeg();
+        float starB = b + (((float) rand() / (float) RAND_MAX) * variance) * randNeg();
 
         Vector starPosition = position.sum(uCoord.sum(vCoord));
-        double magnitude = sqrt((G * mass) / rad);
+        float magnitude = sqrt((G * mass) / rad);
         Vector starVelocity = starPosition.difference(position).vProduct(up).normalize().product(magnitude).sum(velocity);
 
-		particles[i].setPosition(starPosition);
+		particles[i].setInitialPosition(starPosition);
 		particles[i].setVelocity(starVelocity);
 		particles[i].setRadius(7);
 		particles[i].setMass(rand() % 100 + 100);
 		particles[i].setColor(starR, starG, starB);
     }
 
-	core->addEntities(particles, numStars + 1);
+	core->addParticles(particles, numStars + 1);
 }
 
 void galaxy() {
@@ -76,7 +76,7 @@ void galaxy() {
 	core.setOutput(GUI::OUTPUT_TO_VIDEO);
     core.getGUI()->setCamera(Vector(0, -200, 1600), Vector(0, 0, 0), Vector(0, 1, 0));
 
-    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 2500, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 1000, 1, 30);
+    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 2500, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 1000, 30);
 
     core.run();
 }
@@ -84,21 +84,21 @@ void galaxy() {
 void cloud() {
 	srand(time(NULL));
 
-	Core core(2560, 1440, true);
-	core.setTimeStep(0.1);
+	Core core(2560, 1400, true);
+	core.setTimeStep(0.01);
 	core.setStepsPerFrame(1);
 	core.setFramesPerSecond(100);
-	core.getGUI()->setFileName("medium_50000_r2_1");
-	core.setOutput(GUI::OUTPUT_TO_VIDEO);
-	core.getGUI()->setCamera(Vector(0, 0, 2400), Vector(0, 0, 0), Vector(0, 1, 0));
+	core.getGUI()->setFileName("medium_50000_r2_2d_2");
+	core.setOutput(GUI::OUTPUT_TO_SCREEN);
+	core.getGUI()->setCamera(Vector(0, 0, 1800), Vector(0, 0, 0), Vector(0, 1, 0));
 
 	core.center = { 0, 0, 0 };
 	core.radius = 500;
 
-	double radius = 1000.0;
+	float radius = 800.0;
 
 	Particle* particles;
-	const int numParticles = 50000;
+	const int numParticles = 1000;
 
 //	Particle* massiveParticles;
 //	const int numMassiveParticles = 0;
@@ -131,28 +131,28 @@ void cloud() {
 
 	for (int i = 1; i < numParticles; i++) {
 		while (true) {
-			Vector v = Vector(get_rand(radius), get_rand(radius), get_rand(radius));
+			Vector v = Vector(get_rand(radius), get_rand(radius), 0);
 			if (distance(v, Vector(0, 0, 0)) < radius)
 			{
-				particles[i].setPosition(v);
+				particles[i].setInitialPosition(v);
 				break;
 			}
 		}
 
 		particles[i].setMass(2.0);
 		particles[i].setColor(0, 0, 0);
-		particles[i].setRadius(20);
+		particles[i].setRadius(6);
 	}
 
 //	for (int i = 0; i < numMassiveParticles; i++) {
-//		massiveParticles[i].setPosition(Vector(static_cast<double>(rand() % 200) - 100, static_cast<double>(rand() % 200) - 100, static_cast<double>(rand() % 200) - 100));
+//		massiveParticles[i].setPosition(Vector(static_cast<float>(rand() % 200) - 100, static_cast<float>(rand() % 200) - 100, static_cast<float>(rand() % 200) - 100));
 //
 //		massiveParticles[i].setMass(5.0);
 //		massiveParticles[i].setColor(1, 1, 1);
 //		massiveParticles[i].setRadius(30);
 //	}
 //
-	core.addEntities(particles, numParticles);
+	core.addParticles(particles, numParticles);
 //	core.addMassiveParticles(massiveParticles, numMassiveParticles);
 
 	core.run();

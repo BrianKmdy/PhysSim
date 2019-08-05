@@ -1,22 +1,22 @@
 #include "Rectangle.h"
 
-Rectangle::Rectangle(double x, double y, double z, double width, double height, double mass, Vector velocity) : Particle(x, y, z, mass, velocity) {
+Rectangle::Rectangle(float x, float y, float z, float width, float height, float mass, Vector velocity) : Particle(mass, velocity) {
     this->width = width;
     this->height = height;
 }
 
-void Rectangle::setWidth(double width) {
+void Rectangle::setWidth(float width) {
     this->width = width;
 }
 
-void Rectangle::setHeight(double height) {
+void Rectangle::setHeight(float height) {
     this->height = height;
 }
 
-double Rectangle::getWidth() {
+float Rectangle::getWidth() {
     return width;
 }
 
-double Rectangle::getHeight() {
+float Rectangle::getHeight() {
     return height;
 }

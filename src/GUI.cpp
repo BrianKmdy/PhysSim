@@ -12,13 +12,16 @@
 
 #include "Calc.h"
 
-double cameraAngle = 0;
+float cameraAngle = 0;
 
-GUI::GUI(double wWidth, double wHeight) :
-		UserInterface(wWidth, wHeight),
+GUI::GUI(float wWidth, float wHeight):
 		output(0),
 		lastFrameTime(0),
-		lastFrameCount(0)
+		lastFrameCount(0),
+        wWidth(wWidth),
+        wHeight(wHeight),
+        width(0),
+        height(0)
 {
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -31,8 +34,8 @@ GUI::GUI(double wWidth, double wHeight) :
 	// glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
 	// glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 
-	width = 2500;
-	height = 1340;
+	width = 2560;
+	height = 1400;
 
 	win = glfwCreateWindow(width, height, "PhysSim", NULL, NULL);
 	glfwSetWindowPos(win, 30, 50);
@@ -68,8 +71,8 @@ void GUI::setOutput(int output, unsigned int fps) {
 			PIPE_ACCESS_OUTBOUND,
 			PIPE_TYPE_BYTE + PIPE_WAIT,
 			1,
+			100000000,
 			1000000,
-			100,
 			1000,
 			nullptr);
 
@@ -105,7 +108,7 @@ void GUI::setFileName(std::string fileName) {
 	this->fileName = fileName;
 }
 
-void GUI::tick(Particle* particles, int nParticles, Particle* massiveParticles, int numMassiveParticles) {
+void GUI::tick(Particle* particles, int nParticles, Particle* massiveParticles, int numMassiveParticles, int step) {
     float ratio;
     int width, height;
 
@@ -159,7 +162,7 @@ void GUI::tick(Particle* particles, int nParticles, Particle* massiveParticles, 
 	{
         // glRotatef(180, 1, 0, 0);
          glPushMatrix();
-         glTranslatef(particles[i].getX(), particles[i].getY(), particles[i].getZ());
+         glTranslatef(particles[i].getX(step), particles[i].getY(step), particles[i].getZ(step));
          glColor3f(particles[i].getR(), particles[i].getG(), particles[i].getB());
         // glRotatef(thetax, 1, 0, 0); 
         // glRotatef(thetay, 0, -1, 0);
@@ -188,7 +191,7 @@ void GUI::tick(Particle* particles, int nParticles, Particle* massiveParticles, 
 	 {
 		 // glRotatef(180, 1, 0, 0);
 		 glPushMatrix();
-		 glTranslatef(massiveParticles[i].getX(), massiveParticles[i].getY(), massiveParticles[i].getZ());
+		 glTranslatef(massiveParticles[i].getX(step), massiveParticles[i].getY(step), massiveParticles[i].getZ(step));
 		 glColor3f(massiveParticles[i].getR(), massiveParticles[i].getG(), massiveParticles[i].getB());
 		// glRotatef(thetax, 1, 0, 0); 
 		// glRotatef(thetay, 0, -1, 0);

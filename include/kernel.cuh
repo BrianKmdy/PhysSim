@@ -7,15 +7,15 @@
 
 struct v3
 {
-	double x;
-	double y;
-	double z;
+	float x;
+	float y;
+	float z;
 };
 
 __global__
-void calculatePositionGravity(Particle* particles, int nParticles, double timeElapsed);
-void doWork(Particle* particles, int nParticles, double timeElapsed);
+void calculatePositionGravity(Particle* particles, int nParticles, float timeElapsed, int step);
+void doWork(Particle* particles, int nParticles, float timeElapsed, int step);
 
 __global__
-void calculatePositionHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, double timeElapsed, v3 center, double radius);
-void doWorkHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, double timeElapsed, v3 center, double radius);
+void calculatePositionHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, float timeElapsed, v3 center, float radius, int step);
+void doWorkHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, float timeElapsed, v3 center, float radius, int step);

@@ -11,7 +11,7 @@ class Entity
         int type;
 
     protected:
-        double mass;
+        float mass;
         Vector velocity;
         std::vector<Vector> variableForces;
         std::vector<Vector> constantForces;
@@ -21,13 +21,13 @@ class Entity
         const static int RECTANGLE = 1;
         const static int ELLIPSE  = 2;
 
-        Entity(double mass = 0.0, Vector velocity = Vector());
+        Entity(float mass = 0.0, Vector velocity = Vector());
 
-        void setMass(double mass);
+        void setMass(float mass);
         void setVelocity(Vector velocity);
         void addVariableForce(Vector force);
         void addConstantForce(Vector force);
-        double getMass();
+        float getMass();
         Vector getVelocity();
         std::vector<Vector> getVariableForces();
         std::vector<Vector> getConstantForces();
@@ -35,7 +35,7 @@ class Entity
         void removeConstantForces();
         int getType();
 
-        virtual void think(double timeElapsed, Vector force) = 0;
+        virtual void think(float timeElapsed, Vector force) = 0;
 };
 
 #endif // ENTITY_H

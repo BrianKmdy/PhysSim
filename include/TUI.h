@@ -16,7 +16,7 @@ class TUI : public UserInterface
 //        WINDOW *win;
 
     public:
-        TUI(double wWidth, double wHeight);
+        TUI(float wWidth, float wHeight);
 
         void tick(const std::vector<Particle> * entities);
         void drawParticle(Particle particle);

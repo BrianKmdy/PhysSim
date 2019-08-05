@@ -7,16 +7,16 @@
 class Rectangle : public Particle
 {
     private:
-        double width;
-        double height;
+        float width;
+        float height;
 
     public:
-        Rectangle(double x = 0.0, double y = 0.0, double z = 0.0, double width = 0.0, double height = 0.0, double mass = 0.0, Vector velocity = Vector());
+        Rectangle(float x = 0.0, float y = 0.0, float z = 0.0, float width = 0.0, float height = 0.0, float mass = 0.0, Vector velocity = Vector());
 
-        void setWidth(double width);
-        void setHeight(double height);
-        double getWidth();
-        double getHeight();
+        void setWidth(float width);
+        void setHeight(float height);
+        float getWidth();
+        float getHeight();
 };
 
 #endif // RECTANGLE_H

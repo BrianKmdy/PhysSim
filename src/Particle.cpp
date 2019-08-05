@@ -1,10 +1,7 @@
 #include "Particle.h"
 
-Particle::Particle(double x, double y, double z, double mass, Vector velocity, double radius)
+Particle::Particle(float mass, Vector velocity, float radius)
 {
-    this->x = x;
-    this->y = y;
-    this->z = z;
     this->mass = mass;
     this->radius = radius;
     this->velocity = velocity;
@@ -15,36 +12,20 @@ Particle::Particle(double x, double y, double z, double mass, Vector velocity, d
     b = 1;
 }
 
-Particle::Particle(Vector position, double mass, Vector velocity, double radius)
-{
-    this->x = position.getX();
-    this->y = position.getY();
-    this->z = position.getZ();
-    this->mass = mass;
-    this->radius = radius;
-    this->velocity = velocity;
-    variableForces = std::vector<Vector>();
-    constantForces = std::vector<Vector>();
-    r = 1;
-    g = 1;
-    b = 1;
-}
-
-void Particle::setMass(double mass) {
+void Particle::setMass(float mass) {
     this->mass = mass;
 }
 
-void Particle::setPosition(Vector position) {
-	x = position.getX();
-	y = position.getY();
-	z = position.getZ();
+void Particle::setInitialPosition(Vector position) {
+	this->position[0] = position;
+	this->position[1] = position;
 }
 
 void Particle::setVelocity(Vector velocity) {
     this->velocity = velocity;
 }
 
-void Particle::setRadius(double radius) {
+void Particle::setRadius(float radius) {
 	this->radius = radius;
 }
 
@@ -56,11 +37,11 @@ void Particle::addConstantForce(Vector force) {
     constantForces.push_back(force);
 }
 
-double Particle::getMass() {
+float Particle::getMass() {
     return mass;
 }
 
-double Particle::getRadius() { 
+float Particle::getRadius() { 
     return radius;
 }
 
@@ -68,26 +49,22 @@ Vector Particle::getVelocity() {
     return velocity;
 }
 
-void Particle::setColor(double r, double g, double b) {
+void Particle::setColor(float r, float g, float b) {
     this->r = r;
     this->g = g;
     this->b = b;
 }
 
-double Particle::getR() {
+float Particle::getR() {
     return r;
 }
 
-double Particle::getG() {
+float Particle::getG() {
     return g;
 }
 
-double Particle::getB() {
+float Particle::getB() {
     return b;
-}
-
-Vector Particle::getPosition() {
-	return Vector(x, y, z);
 }
 
 std::vector<Vector> Particle::getVariableForces() {
@@ -106,28 +83,16 @@ void Particle::removeConstantForces() {
     constantForces.clear();
 }
 
-void Particle::setX(double x) {
-    this->x = x;
+float Particle::getX(int step) {
+    return position[step % 2].x;
 }
 
-void Particle::setY(double y) {
-    this->y = y;
+float Particle::getY(int step) {
+	return position[step % 2].y;
 }
 
-void Particle::setZ(double z) {
-    this->z = z;
-}
-
-double Particle::getX() {
-    return x;
-}
-
-double Particle::getY() {
-    return y;
-}
-
-double Particle::getZ() {
-    return z;
+float Particle::getZ(int step) {
+	return position[step % 2].z;
 }
 
 void Particle::setSignificant(bool significant) {
@@ -138,16 +103,16 @@ bool Particle::isSignificant() {
     return significant;
 }
 
-void Particle::think(double timeElapsed, Vector force) {
-    //Vector acceleration = Vector(totalForce.getMagnitude() / mass, totalForce.getDirection());
-    Vector acceleration = Vector(force.getX() / mass, force.getY() / mass, force.getZ() / mass);
-
-    x = x + (velocity.getX() * timeElapsed) + (0.5 * (acceleration.getX()) * pow(timeElapsed, 2.0));
-    y = y + (velocity.getY() * timeElapsed) + (0.5 * (acceleration.getY()) * pow(timeElapsed, 2.0));
-    z = z + (velocity.getZ() * timeElapsed) + (0.5 * (acceleration.getZ()) * pow(timeElapsed, 2.0));
-
-    double vX = velocity.getX() + (acceleration.getX() * timeElapsed);
-    double vY = velocity.getY() + (acceleration.getY() * timeElapsed);
-    double vZ = velocity.getZ() + (acceleration.getZ() * timeElapsed);
-    velocity.setComponents(vX, vY, vZ);
-}
+// void Particle::think(float timeElapsed, Vector force) {
+//     //Vector acceleration = Vector(totalForce.getMagnitude() / mass, totalForce.getDirection());
+//     Vector acceleration = Vector(force.getX() / mass, force.getY() / mass, force.getZ() / mass);
+// 
+//     x = x + (velocity.getX() * timeElapsed) + (0.5 * (acceleration.getX()) * pow(timeElapsed, 2.0));
+//     y = y + (velocity.getY() * timeElapsed) + (0.5 * (acceleration.getY()) * pow(timeElapsed, 2.0));
+//     z = z + (velocity.getZ() * timeElapsed) + (0.5 * (acceleration.getZ()) * pow(timeElapsed, 2.0));
+// 
+//     float vX = velocity.getX() + (acceleration.getX() * timeElapsed);
+//     float vY = velocity.getY() + (acceleration.getY() * timeElapsed);
+//     float vZ = velocity.getZ() + (acceleration.getZ() * timeElapsed);
+//     velocity.setComponents(vX, vY, vZ);
+// }
