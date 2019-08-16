@@ -87,12 +87,11 @@ void calculatePositionHypothetical(Particle* particles, int nParticles, Particle
 				Vector* otherPosition = &particles[o].position[(step + 1) % 2];
 
 				float dist = sqrt(pow(otherPosition->y - lastPosition->y, 2.0f) + pow(otherPosition->x - lastPosition->x, 2.0f) + pow(otherPosition->z - lastPosition->z, 2.0f));
-				if (dist > 0.0) {
+				v3 v = { lastPosition->x - otherPosition->x, lastPosition->y - otherPosition->y, lastPosition->z - otherPosition->z };
+				float vectorMagnitude = sqrt(pow(v.x, 2.0f) + pow(v.y, 2.0f) + pow(v.z, 2.0f));
+				if (dist > 0.01) {
 					// XXX Review this, should be dist^2
 					float forceMagnitude = (G * (float)particles[i].mass * (float)particles[o].mass) / pow(dist, 2.0f);
-
-					v3 v = { lastPosition->x - otherPosition->x, lastPosition->y - otherPosition->y, lastPosition->z - otherPosition->z };
-					float vectorMagnitude = sqrt(pow(v.x, 2.0f) + pow(v.y, 2.0f) + pow(v.z, 2.0f));
 					if (vectorMagnitude > 0.0f) {
 						v.x /= vectorMagnitude;
 						v.y /= vectorMagnitude;

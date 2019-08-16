@@ -57,6 +57,9 @@ public:
 		void addMassiveParticles(Particle* massiveParticles, int nMassiveParticles);
 		void calcMassiveParticles(float timeElapsed, int step);
 
+		void dumpToDisk(std::string filename, bool full = false);
+		void loadFromDisk(std::string filename, bool full = false);
+
         void run();
 
         GUI *getGUI();

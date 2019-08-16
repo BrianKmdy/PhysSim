@@ -85,20 +85,20 @@ void cloud() {
 	srand(time(NULL));
 
 	Core core(2560, 1400, true);
-	core.setTimeStep(0.01);
+	core.setTimeStep(0.025);
 	core.setStepsPerFrame(1);
 	core.setFramesPerSecond(100);
-	core.getGUI()->setFileName("medium_50000_r2_2d_2");
-	core.setOutput(GUI::OUTPUT_TO_SCREEN);
+	core.getGUI()->setFileName("medium_220000_r2_2d_5");
+	core.setOutput(GUI::OUTPUT_TO_VIDEO);
 	core.getGUI()->setCamera(Vector(0, 0, 1800), Vector(0, 0, 0), Vector(0, 1, 0));
 
 	core.center = { 0, 0, 0 };
 	core.radius = 500;
 
-	float radius = 800.0;
+	float radius = 1600.0;
 
 	Particle* particles;
-	const int numParticles = 1000;
+	const int numParticles = 220000;
 
 //	Particle* massiveParticles;
 //	const int numMassiveParticles = 0;
@@ -129,7 +129,7 @@ void cloud() {
 //		}
 //	}
 
-	for (int i = 1; i < numParticles; i++) {
+	for (int i = 0; i < numParticles; i++) {
 		while (true) {
 			Vector v = Vector(get_rand(radius), get_rand(radius), 0);
 			if (distance(v, Vector(0, 0, 0)) < radius)
@@ -141,7 +141,7 @@ void cloud() {
 
 		particles[i].setMass(2.0);
 		particles[i].setColor(0, 0, 0);
-		particles[i].setRadius(6);
+		particles[i].setRadius(5);
 	}
 
 //	for (int i = 0; i < numMassiveParticles; i++) {

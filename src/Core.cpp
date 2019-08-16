@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <thread>
+#include <fstream>
 
 Core::Core(float width, float height, bool interParticleGravity) {
     this->interParticleGravity = interParticleGravity;
@@ -55,6 +56,29 @@ GUI *Core::getGUI() {
 }
 
 #include <iostream>
+void Core::dumpToDisk(std::string filename, bool full)
+{
+	std::ofstream f;
+	f.open(filename, std::ofstream::out | std::ios::binary);
+	f.write((char*) &nParticles, sizeof(int));
+	f.write((char*) &nMassiveParticles, sizeof(int));
+
+	for (int i = 0; i < nParticles; ++i)
+	{
+		f.write((char*) &particles[i].position[stepCount % 2], sizeof(Vector));
+	}
+
+	for (int i = 0; i < nMassiveParticles; ++i)
+	{
+		f.write((char*) &massiveParticles[i].position[stepCount % 2], sizeof(Vector));
+	}
+}
+
+void Core::loadFromDisk(std::string filename, bool full)
+{
+
+}
+
 void Core::calcMassiveParticles(float timeElapsed, int step)
 {
 	for (int i = 0; i < nMassiveParticles; i++) {
@@ -116,6 +140,11 @@ void Core::run() {
         if (ui->shouldClose())
             break;
 
+		if (stepCount % 100 == 0)
+		{
+			dumpToDisk("medium_22000_r2_2d_5_" + std::to_string(stepCount) + ".dmp");
+		}
+
         // Call cuda to think here
 		// Launch a kernel on the GPU with one thread for each element.
 		doWorkHypothetical(particles, nParticles, massiveParticles, nMassiveParticles, timeStep, center, radius, stepCount);
@@ -127,7 +156,7 @@ void Core::run() {
 		if (stepCount == 1)
 		{
 			Particle* massiveParticles;
-			const int numMassiveParticles = 0;
+			const int numMassiveParticles = 1;
 
 			// Initialize the massive particles
 			if (numMassiveParticles > 0)
@@ -143,7 +172,7 @@ void Core::run() {
 			for (int i = 0; i < numMassiveParticles; i++) {
 				massiveParticles[i].setInitialPosition(Vector(0, 0, 0));
 
-				massiveParticles[i].setMass(80000.0);
+				massiveParticles[i].setMass(500000.0);
 				massiveParticles[i].setColor(1, 1, 1);
 				massiveParticles[i].setRadius(30);
 			}

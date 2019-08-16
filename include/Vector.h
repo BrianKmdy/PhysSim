@@ -3,6 +3,8 @@
 
 #include <cmath>
 
+#pragma pack(push, 1)
+
 class Vector
 {
     public:
@@ -37,5 +39,7 @@ class Vector
         Vector orthogonal();
         Vector product(float scalar);
 };
+
+#pragma pack(pop)
 
 #endif // VECTOR_H
