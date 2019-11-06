@@ -2,6 +2,8 @@
 
 #include "Calc.h"
 
+#define DIST(v1, v2) sqrt(pow(v1->y - v2->y, 2.0f) + pow(v1->x - v2->x, 2.0f) + pow(v1->z - v2->z, 2.0f))
+
 __global__
 void calculatePositionGravity(Particle* particles, int nParticles, float timeElapsed, int step) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -63,23 +65,6 @@ void calculatePositionHypothetical(Particle* particles, int nParticles, Particle
 
 		Vector* position = &particles[i].position[step % 2];
 		Vector* lastPosition = &particles[i].position[(step + 1) % 2];
-
-		// Add the force from the bounds
-		float radiusFromCenter = sqrt(pow(lastPosition->x - center.x, 2.0f) + pow(lastPosition->y - center.y, 2.0f) + pow(lastPosition->z - center.z, 2.0f));
-		float magnitude = pow(radiusFromCenter, 2.0f) * FORCE_CONST;
-		v3 direction = { center.x - lastPosition->x, center.y - lastPosition->y, center.z - lastPosition->z };
-		if (radiusFromCenter > 0.0f) {
-			direction.x /= radiusFromCenter;
-			direction.y /= radiusFromCenter;
-			direction.z /= radiusFromCenter;
-		}
-		direction.x *= magnitude;
-		direction.y *= magnitude;
-		direction.z *= magnitude;
-
-		force.x += direction.x;
-		force.y += direction.y;
-		force.z += direction.z;
 
 		// Add the force from the particles in the medium
 		for (int o = 0; o < nParticles; o++) {
@@ -164,62 +149,70 @@ void calculatePositionHypothetical(Particle* particles, int nParticles, Particle
 			particles[i].velocity.y = speedLimit / velocityMagnitude * newVelocity.y;
 			particles[i].velocity.z = speedLimit / velocityMagnitude * newVelocity.z;
 		}
-	}
 
-	for (int i = index; i < nMassiveParticles; i += stride) {
-		Vector* position = &massiveParticles[i].position[step % 2];
-		Vector* lastPosition = &massiveParticles[i].position[(step + 1) % 2];
-
-		v3 force = { 0 };
-
-		// Add the force from the bounds
-		float radiusFromCenter = sqrt(pow(lastPosition->x - center.x, 2.0f) + pow(lastPosition->y - center.y, 2.0f) + pow(lastPosition->z - center.z, 2.0f));
-		v3 direction = { center.x - lastPosition->x, center.y - lastPosition->y, center.z - lastPosition->z };
-		float magnitude = pow(radiusFromCenter, 2.0f) * massiveParticles[i].mass * FORCE_CONST;
-		if (radiusFromCenter > 0.0f)
+		if (DIST(position, (&center)) > radius)
 		{
-			direction.x /= radiusFromCenter;
-			direction.y /= radiusFromCenter;
-			direction.z /= radiusFromCenter;
+			*position = *lastPosition;
+			particles[i].velocity.x = 0.0f;
+			particles[i].velocity.y = 0.0f;
+			particles[i].velocity.z = 0.0f;
 		}
-
-		force.x += direction.x * magnitude;
-		force.y += direction.y * magnitude;
-		force.z += direction.z * magnitude;
-
-		// Add the force from the particles in the medium
-		for (int o = 0; o < nParticles; o++) {
-			Vector* otherPosition = &particles[o].position[(step + 1) % 2];
-
-			float dist = sqrt(pow(otherPosition->y - lastPosition->y, 2.0f) + pow(otherPosition->x - lastPosition->x, 2.0f) + pow(otherPosition->z - lastPosition->z, 2.0f));
-			if (dist > 0.0) {
-				// XXX Review this, should be dist^2
-				float forceMagnitude = (G * (float)massiveParticles[i].mass * (float)particles[o].mass) / pow(dist, 2.0f);
-
-				v3 v = { lastPosition->x - otherPosition->x, lastPosition->y - otherPosition->y, lastPosition->z - otherPosition->z };
-				float vectorMagnitude = sqrt(pow(v.x, 2.0f) + pow(v.y, 2.0f) + pow(v.z, 2.0f));
-				if (vectorMagnitude > 0.0f) {
-					v.x /= vectorMagnitude;
-					v.y /= vectorMagnitude;
-					v.z /= vectorMagnitude;
-				}
-
-				force.x += v.x * forceMagnitude;
-				force.y += v.y * forceMagnitude;
-				force.z += v.z * forceMagnitude;
-			}
-		}
-
-		v3 acceleration = { force.x / massiveParticles[i].mass, force.y / massiveParticles[i].mass, force.z / massiveParticles[i].mass };
-
-		position->x = lastPosition->x + (massiveParticles[i].velocity.x * timeElapsed) + (0.5 * acceleration.x * pow(timeElapsed, 2.0f));
-		position->y = lastPosition->y + (massiveParticles[i].velocity.y * timeElapsed) + (0.5 * acceleration.y * pow(timeElapsed, 2.0f));
-		position->z = lastPosition->z + (massiveParticles[i].velocity.z * timeElapsed) + (0.5 * acceleration.z * pow(timeElapsed, 2.0f));
-
-		massiveParticles[i].velocity.x = massiveParticles[i].velocity.x + (acceleration.x * timeElapsed);
-		massiveParticles[i].velocity.y = massiveParticles[i].velocity.y + (acceleration.y * timeElapsed);
-		massiveParticles[i].velocity.z = massiveParticles[i].velocity.z + (acceleration.z * timeElapsed);
 	}
+
+//	for (int i = index; i < nMassiveParticles; i += stride) {
+//		Vector* position = &massiveParticles[i].position[step % 2];
+//		Vector* lastPosition = &massiveParticles[i].position[(step + 1) % 2];
+//
+//		v3 force = { 0 };
+//
+//		// Add the force from the bounds
+//		float radiusFromCenter = sqrt(pow(lastPosition->x - center.x, 2.0f) + pow(lastPosition->y - center.y, 2.0f) + pow(lastPosition->z - center.z, 2.0f));
+//		v3 direction = { center.x - lastPosition->x, center.y - lastPosition->y, center.z - lastPosition->z };
+//		float magnitude = pow(radiusFromCenter, 2.0f) * massiveParticles[i].mass * FORCE_CONST;
+//		if (radiusFromCenter > 0.0f)
+//		{
+//			direction.x /= radiusFromCenter;
+//			direction.y /= radiusFromCenter;
+//			direction.z /= radiusFromCenter;
+//		}
+//
+//		force.x += direction.x * magnitude;
+//		force.y += direction.y * magnitude;
+//		force.z += direction.z * magnitude;
+//
+//		// Add the force from the particles in the medium
+//		for (int o = 0; o < nParticles; o++) {
+//			Vector* otherPosition = &particles[o].position[(step + 1) % 2];
+//
+//			float dist = sqrt(pow(otherPosition->y - lastPosition->y, 2.0f) + pow(otherPosition->x - lastPosition->x, 2.0f) + pow(otherPosition->z - lastPosition->z, 2.0f));
+//			if (dist > 0.0) {
+//				// XXX Review this, should be dist^2
+//				float forceMagnitude = (G * (float)massiveParticles[i].mass * (float)particles[o].mass) / pow(dist, 2.0f);
+//
+//				v3 v = { lastPosition->x - otherPosition->x, lastPosition->y - otherPosition->y, lastPosition->z - otherPosition->z };
+//				float vectorMagnitude = sqrt(pow(v.x, 2.0f) + pow(v.y, 2.0f) + pow(v.z, 2.0f));
+//				if (vectorMagnitude > 0.0f) {
+//					v.x /= vectorMagnitude;
+//					v.y /= vectorMagnitude;
+//					v.z /= vectorMagnitude;
+//				}
+//
+//				force.x += v.x * forceMagnitude;
+//				force.y += v.y * forceMagnitude;
+//				force.z += v.z * forceMagnitude;
+//			}
+//		}
+//
+//		v3 acceleration = { force.x / massiveParticles[i].mass, force.y / massiveParticles[i].mass, force.z / massiveParticles[i].mass };
+//
+//		position->x = lastPosition->x + (massiveParticles[i].velocity.x * timeElapsed) + (0.5 * acceleration.x * pow(timeElapsed, 2.0f));
+//		position->y = lastPosition->y + (massiveParticles[i].velocity.y * timeElapsed) + (0.5 * acceleration.y * pow(timeElapsed, 2.0f));
+//		position->z = lastPosition->z + (massiveParticles[i].velocity.z * timeElapsed) + (0.5 * acceleration.z * pow(timeElapsed, 2.0f));
+//
+//		massiveParticles[i].velocity.x = massiveParticles[i].velocity.x + (acceleration.x * timeElapsed);
+//		massiveParticles[i].velocity.y = massiveParticles[i].velocity.y + (acceleration.y * timeElapsed);
+//		massiveParticles[i].velocity.z = massiveParticles[i].velocity.z + (acceleration.z * timeElapsed);
+//	}
 }
 
 void doWorkHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, float timeElapsed, v3 center, float radius, int step) {

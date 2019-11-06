@@ -88,17 +88,17 @@ void cloud() {
 	core.setTimeStep(0.025);
 	core.setStepsPerFrame(1);
 	core.setFramesPerSecond(100);
-	core.getGUI()->setFileName("medium_220000_r2_2d_5");
+	core.getGUI()->setFileName("medium_100000_2d_bounded_5");
 	core.setOutput(GUI::OUTPUT_TO_VIDEO);
 	core.getGUI()->setCamera(Vector(0, 0, 1800), Vector(0, 0, 0), Vector(0, 1, 0));
 
 	core.center = { 0, 0, 0 };
-	core.radius = 500;
+	core.radius = 2000.0;
 
 	float radius = 1600.0;
 
 	Particle* particles;
-	const int numParticles = 220000;
+	const int numParticles = 100000;
 
 //	Particle* massiveParticles;
 //	const int numMassiveParticles = 0;
