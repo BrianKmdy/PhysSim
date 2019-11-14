@@ -1,3 +1,5 @@
+#pragma once
+
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -5,17 +7,21 @@
 
 #include "Particle.h"
 
-struct v3
+__global__
+void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out);
+void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* data_in, float* data_out);
+
+__host__ __device__ int test_math();
+
+__host__ __device__ class testclass
 {
-	float x;
-	float y;
-	float z;
+public:
+	std::vector<int> get()
+	{
+		std::vector<int> test;
+		test.push_back(0);
+		test.push_back(1);
+		test.push_back(2);
+		return test;
+	}
 };
-
-__global__
-void calculatePositionGravity(Particle* particles, int nParticles, float timeElapsed, int step);
-void doWork(Particle* particles, int nParticles, float timeElapsed, int step);
-
-__global__
-void calculatePositionHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, float timeElapsed, v3 center, float radius, int step);
-void doWorkHypothetical(Particle* particles, int nParticles, Particle* massiveParticles, int nMassiveParticles, float timeElapsed, v3 center, float radius, int step);

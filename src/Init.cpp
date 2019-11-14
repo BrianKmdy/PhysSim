@@ -1,175 +1,170 @@
 #include <ctime>
 #include <iostream>
 #include <cstdlib>
-
-#define _USE_MATH_DEFINES
-#include <math.h>
-
-#include <windows.h>
+#include <algorithm>
+#include <string>
 
 #include "Particle.h"
 #include "Core.h"
-#include "Calc.h"
 
-float get_rand(float max) {
-	return ((static_cast<float>(rand()) / RAND_MAX) * 2.0 * max) - max;
-}
+#include "kernel.cuh"
 
-void createGalaxy(Core *core, Vector position, Vector up, float radius, float mass, Vector velocity, float r, float g, float b, float variance, float starMaxRadius, float starMinRadius, int numStars, float minDistance) {
-	Particle* particles;
+#include "yaml-cpp/yaml.h"
 
-	cudaError cudaStatus = cudaSetDevice(0);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-		return;
-	}
+#include <thread>
 
-	cudaStatus = cudaMallocManaged(&particles, (numStars + 1) * sizeof(Particle));
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMalloc failed!");
-		return;
-	}
+const unsigned int size = 10000000;
 
-	particles[0].setInitialPosition(position);
-	particles[0].setVelocity(velocity);
-	particles[0].setMass(mass);
-	particles[0].setColor(r, g, b);
-
-    Vector w = up.normalize();
-    Vector u = up.orthogonal();
-    Vector v = w.vProduct(u);
-
-    for (int i = 1; i < numStars + 1; i++) {
-        float theta = ((float) rand() / (float) RAND_MAX) * 2 * M_PI;
-        float rad = ((float) rand() / (float) RAND_MAX) * (radius - minDistance) + minDistance;
-        float starRadius = ((float) rand() / (float) RAND_MAX) * (starMaxRadius - starMinRadius) + starMinRadius;
-
-        Vector uCoord = u.product(cos(theta)).product(rad);
-        Vector vCoord = v.product(sin(theta)).product(rad);
-
-        float starR = r + (((float) rand() / (float) RAND_MAX) * variance) * randNeg();
-        float starG = g + (((float) rand() / (float) RAND_MAX) * variance) * randNeg();
-        float starB = b + (((float) rand() / (float) RAND_MAX) * variance) * randNeg();
-
-        Vector starPosition = position.sum(uCoord.sum(vCoord));
-        float magnitude = sqrt((G * mass) / rad);
-        Vector starVelocity = starPosition.difference(position).vProduct(up).normalize().product(magnitude).sum(velocity);
-
-		particles[i].setInitialPosition(starPosition);
-		particles[i].setVelocity(starVelocity);
-		particles[i].setRadius(7);
-		particles[i].setMass(rand() % 100 + 100);
-		particles[i].setColor(starR, starG, starB);
-    }
-
-	core->addParticles(particles, numStars + 1);
-}
-
-void galaxy() {
-    srand(time(NULL));
-
-    Core core(2560, 1440, true);
-	core.setTimeStep(0.00005);
-	core.setStepsPerFrame(5);
-	core.setFramesPerSecond(100);
-	core.getGUI()->setFileName("galaxy_1000");
-	core.setOutput(GUI::OUTPUT_TO_VIDEO);
-    core.getGUI()->setCamera(Vector(0, -200, 1600), Vector(0, 0, 0), Vector(0, 1, 0));
-
-    createGalaxy(&core, Vector(0, 50, 0), Vector(0, 1.5, 1), 2500, 1000000000, Vector(0, 0, 0), 0.7, 0.7, 1, 0.2, 2, 5, 1000, 30);
-
-    core.run();
-}
-
-void cloud() {
-	srand(time(NULL));
-
-	Core core(2560, 1400, true);
-	core.setTimeStep(0.025);
-	core.setStepsPerFrame(1);
-	core.setFramesPerSecond(100);
-	core.getGUI()->setFileName("medium_100000_2d_bounded_5");
-	core.setOutput(GUI::OUTPUT_TO_VIDEO);
-	core.getGUI()->setCamera(Vector(0, 0, 1800), Vector(0, 0, 0), Vector(0, 1, 0));
-
-	core.center = { 0, 0, 0 };
-	core.radius = 2000.0;
-
-	float radius = 1600.0;
-
-	Particle* particles;
-	const int numParticles = 100000;
-
-//	Particle* massiveParticles;
-//	const int numMassiveParticles = 0;
-
-	cudaError cudaStatus = cudaSetDevice(0);
-	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-		return;
-	}
-
-	// Initialize the particles
-	if (numParticles > 0)
-	{
-		cudaStatus = cudaMallocManaged(&particles, numParticles * sizeof(Particle));
-		if (cudaStatus != cudaSuccess) {
-			fprintf(stderr, "cudaMalloc failed!");
-			return;
-		}
-	}
-
-//	// Initialize the massive particles
-//	if (numMassiveParticles > 0)
-//	{
-//		cudaStatus = cudaMallocManaged(&massiveParticles, numMassiveParticles * sizeof(Particle));
-//		if (cudaStatus != cudaSuccess) {
-//			fprintf(stderr, "cudaMalloc failed!");
-//			return;
-//		}
-//	}
-
-	for (int i = 0; i < numParticles; i++) {
-		while (true) {
-			Vector v = Vector(get_rand(radius), get_rand(radius), 0);
-			if (distance(v, Vector(0, 0, 0)) < radius)
-			{
-				particles[i].setInitialPosition(v);
-				break;
-			}
-		}
-
-		particles[i].setMass(2.0);
-		particles[i].setColor(0, 0, 0);
-		particles[i].setRadius(5);
-	}
-
-//	for (int i = 0; i < numMassiveParticles; i++) {
-//		massiveParticles[i].setPosition(Vector(static_cast<float>(rand() % 200) - 100, static_cast<float>(rand() % 200) - 100, static_cast<float>(rand() % 200) - 100));
-//
-//		massiveParticles[i].setMass(5.0);
-//		massiveParticles[i].setColor(1, 1, 1);
-//		massiveParticles[i].setRadius(30);
-//	}
-//
-	core.addParticles(particles, numParticles);
-//	core.addMassiveParticles(massiveParticles, numMassiveParticles);
-
-	core.run();
-}
-
-#ifdef USEWINDOWS
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
+void load_yaml()
 {
-	galaxy();
 
-    return 0;
 }
-#else
+
+void bigloop_cpu(unsigned int n, float* data_in, float* data_out)
+{
+	for (unsigned int i = 0; i < n; i += 1) {
+		float lol = 0.0;
+		for (unsigned int o = 0; o < n; o++) {
+			lol += data_in[o];
+		}
+
+		data_out[i] = lol;
+	}
+}
+
+void print_data(float* data)
+{
+	for (unsigned int i = 0; i < 10; i++)
+		std::cout << data[i] << " ";
+	std::cout << "... ";
+	for (unsigned int i = size - 10; i < size; i++)
+		std::cout << data[i] << " ";
+	std::cout << std::endl;
+	std::cout << std::endl;
+}
+
+void test_cpu()
+{
+	std::cout << "Allocating memory for input data" << std::endl;
+	float* data_in = new float[size];
+	std::cout << "Allocating memory for output data" << std::endl;
+	float* data_out = new float[size];
+
+	for (unsigned int i = 0; i < size; i++)
+	{
+		data_in[i] = 1.0 / float(i + 1);
+	}
+
+	print_data(data_in);
+
+	std::cout << "Running test" << std::endl;
+	auto time = std::chrono::high_resolution_clock::now();
+	bigloop_cpu(size, data_in, data_out);
+
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - time);
+	std::cout << "Total time: " << duration.count() << "ms" << std::endl;
+	std::cout << std::endl;
+
+	print_data(data_out);
+}
+
+void test_loop(float* test)
+{
+	std::cout << "Running test" << std::endl;
+	auto time = std::chrono::high_resolution_clock::now();
+
+	float lol = 0.0;
+	for (int i = 0; i < size; i++)
+	{
+		lol += 1.0;
+		test[i] = lol;
+	}
+
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - time);
+	std::cout << "Total time: " << duration.count() << "ms" << std::endl;
+	std::cout << std::endl;
+}
+
+void test_cuda()
+{
+	std::cout << "Setting cuda device" << std::endl;
+
+	int nDevices;
+	cudaGetDeviceCount(&nDevices);
+
+	unsigned int deviceBatchSize = (size + nDevices - 1) / nDevices;
+
+	std::cout << "Num elements: " << size << std::endl;
+	std::cout << "Batch size: " << deviceBatchSize << std::endl;
+
+	float* data_in_h = new float[size];
+	float* data_out_h = new float[size];
+	memset(data_out_h, 0, size);
+
+	for (unsigned int i = 0; i < size; i++)
+	{
+		data_in_h[i] = 1.0 / double(i + 1);
+	}
+
+	print_data(data_in_h);
+
+	auto time = std::chrono::high_resolution_clock::now();
+
+	float* data_in_d;
+	std::vector<float*> data_out_d;
+	for (int i = 0; i < nDevices; i++)
+	{
+		cudaSetDevice(i);
+		std::cout << "Allocating memory for input data" << std::endl;
+		data_out_d.push_back(0);
+
+		cudaMalloc(&data_in_d, size * sizeof(float));
+		cudaMalloc(&data_out_d[i], size * sizeof(float));
+
+		cudaMemcpy(data_in_d, data_in_h, size * sizeof(float), cudaMemcpyHostToDevice);
+		cudaMemcpy(data_out_d[i], data_out_h, size * sizeof(float), cudaMemcpyHostToDevice);
+
+		std::cout << "Starting kernel on device " << std::to_string(i) << std::endl;
+		test(size, deviceBatchSize, i, data_in_d, data_out_d[i]);
+	}
+
+	for (int i = 0; i < nDevices; i++)
+	{
+		cudaSetDevice(i);
+
+		std::cout << "Syncing with device " << std::to_string(i) << std::endl;
+
+		cudaDeviceSynchronize();
+
+		unsigned int num = std::min(deviceBatchSize, size - (i * deviceBatchSize));
+		cudaMemcpy(data_out_h + (i * deviceBatchSize), data_out_d[i] + (i * deviceBatchSize), num * sizeof(float), cudaMemcpyDeviceToHost);
+	}
+
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - time);
+	std::cout << "Total time: " << duration.count() << "ms" << std::endl;
+	std::cout << std::endl;
+	
+	print_data(data_out_h);
+
+	cudaDeviceReset();
+}
+
 int main()
 {
-	cloud();
+	// float* test = new float[size];
+	// test_loop(test);
+
+	YAML::Node config = YAML::LoadFile("config.yaml");
+	for (YAML::const_iterator it = config.begin(); it != config.end(); ++it) {
+		std::cout << it->first.as<std::string>() << ": " << it->second.as<std::string>() << "\n";
+	}
+
+	std::cout << test_math() << std::endl;
+	auto test = testclass();
+	for (auto num : test.get())
+		std::cout << num << std::endl;
+
+	std::cin.get();
 
 	return 0;
 }
-#endif
