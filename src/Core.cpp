@@ -18,9 +18,6 @@ Core::Core(float width, float height, bool interParticleGravity) {
 
 	this->stepCount = 0;
 }
-void Core::setGravity(Vector gravity) {
-    this->gravity = gravity;
-}
 
 void Core::setTimeStep(float timeStep) {
 	this->timeStep = timeStep;

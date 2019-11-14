@@ -3,7 +3,11 @@
 
 #include <vector>
 
-#include "Vector.h"
+
+class Vector
+{
+
+};
 
 class Particle
 {

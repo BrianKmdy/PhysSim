@@ -8,6 +8,7 @@
 #include "Core.h"
 
 #include "kernel.cuh"
+#include "types.cuh"
 
 #include "yaml-cpp/yaml.h"
 
@@ -149,6 +150,14 @@ void test_cuda()
 	cudaDeviceReset();
 }
 
+void printf3(float3 f3)
+{
+	std::cout << "x: " << f3.x << " ";
+	std::cout << "y: " << f3.y << " ";
+	std::cout << "z: " << f3.z << " ";
+	std::cout << std::endl;
+}
+
 int main()
 {
 	// float* test = new float[size];
@@ -159,10 +168,21 @@ int main()
 		std::cout << it->first.as<std::string>() << ": " << it->second.as<std::string>() << "\n";
 	}
 
-	std::cout << test_math() << std::endl;
 	auto test = testclass();
+	test_math_wrapper(&test);
 	for (auto num : test.get())
 		std::cout << num << std::endl;
+
+	float3 t = { 1.0, 2.0, 3.0 };
+	float3 z = { 4.0, 5.0, 6.0 };
+	
+	printf3(t);
+	printf3(z);
+
+	printf3(t * z);
+	printf3(z - t);
+
+
 
 	std::cin.get();
 

@@ -22,11 +22,10 @@
 //
 // Further testing needs to be done to prove the validity of this hypothesis
 // ~Brian Kimball Moody
+// 11/14/2019
 
 #include <vector>
 #include "Particle.h"
-#include "Rectangle.h"
-#include "Vector.h"
 
 #include "kernel.cuh"
 
@@ -47,12 +46,8 @@ class Core
 
 		unsigned long stepCount;
 
-        Vector gravity = Vector();
-
 public:
         Core(float width = 0.0, float height = 0.0, bool interParticleGravity = false);
-
-        void setGravity(Vector gravity);
 
 		void setTimeStep(float timeStep);
 		void setStepsPerFrame(float stepsPerFrame);

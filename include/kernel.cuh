@@ -7,21 +7,44 @@
 
 #include "Particle.h"
 
+
+
+class particle
+{
+	float mass;
+
+	float2 position;
+	float2 velocity;
+};
+
+class Box
+{
+	float mass;
+
+	int2 position;
+
+	int numParticles;
+	particle* particles;
+};
+
+
+class testclass
+{
+public:
+	testclass():
+		test()
+	{}
+
+	__host__ std::vector<int> get();
+	__host__ __device__ void set();
+
+	std::vector<int> test;
+	float3 f;
+};
+
 __global__
 void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out);
 void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* data_in, float* data_out);
 
-__host__ __device__ int test_math();
-
-__host__ __device__ class testclass
-{
-public:
-	std::vector<int> get()
-	{
-		std::vector<int> test;
-		test.push_back(0);
-		test.push_back(1);
-		test.push_back(2);
-		return test;
-	}
-};
+__global__ void test_math(testclass* test);
+void test_math_wrapper(testclass* test);
