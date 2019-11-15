@@ -25,7 +25,6 @@
 // 11/14/2019
 
 #include <vector>
-#include "Particle.h"
 
 #include "kernel.cuh"
 

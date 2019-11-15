@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <string>
 
-#include "Particle.h"
 #include "Core.h"
 
 #include "kernel.cuh"
@@ -167,21 +166,6 @@ int main()
 	for (YAML::const_iterator it = config.begin(); it != config.end(); ++it) {
 		std::cout << it->first.as<std::string>() << ": " << it->second.as<std::string>() << "\n";
 	}
-
-	auto test = testclass();
-	test_math_wrapper(&test);
-	for (auto num : test.get())
-		std::cout << num << std::endl;
-
-	float3 t = { 1.0, 2.0, 3.0 };
-	float3 z = { 4.0, 5.0, 6.0 };
-	
-	printf3(t);
-	printf3(z);
-
-	printf3(t * z);
-	printf3(z - t);
-
 
 
 	std::cin.get();

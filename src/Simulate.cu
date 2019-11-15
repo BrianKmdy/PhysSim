@@ -25,25 +25,3 @@ void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* dat
 
 	bigloop << <(n + numThreads - 1) / numThreads, numThreads >> > (n, deviceBatchSize, deviceId, static_cast<unsigned int>(std::min((deviceId + 1) * deviceBatchSize, n)), data_in, data_out);
 }
-
-__host__ std::vector<int> testclass::get()
-{
-	return test;
-}
-
-__host__ __device__ void testclass::set()
-{
-	test.push_back(0);
-	test.push_back(1);
-	test.push_back(2);
-}
-
-__global__ void test_math(testclass* test)
-{
-	return test->set();
-}
-
-void test_math_wrapper(testclass* test)
-{
-	test_math << <1, 1 >> > (test);
-}
