@@ -17,8 +17,6 @@ struct Particle
 
 struct Box
 {
-	int2 position;
-
 	float mass;
 	float2 centerMass;
 
@@ -34,11 +32,12 @@ struct Instance
 	int nParticles;
 	Particle* particles;
 
-	int nBoxParticles;
-	Particle* boxParticles;
-
+	int boxSize;
 	int nBoxes;
 	Box* boxes;
+
+	__host__ __device__ unsigned int size();
+	__host__ __device__ int getBoxIndex(float2 position);
 };
 
 __global__
@@ -49,5 +48,4 @@ __host__ void initialize(Instance* instance);
 __host__ void unInitialize();
 
 __host__ void simulate(Instance* instance);
-__global__ void kernel();
-__device__ int getBox();
+__global__ void kernel(Instance* instance);

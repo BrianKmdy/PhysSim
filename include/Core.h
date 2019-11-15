@@ -32,15 +32,15 @@
 class Core
 {
 public:
-    Core(int dimensions, int divisions, int nParticles, Particle* particles);
+	Core();
+    Core(Instance* instance);
 	~Core();
+
+	Instance* getInstance();
 
 	void run();
 private:
-	int dimensions;
-	int divisions;
-
-	Instance instance;
+	Instance* instance;
 };
 
 #endif // CORE_H

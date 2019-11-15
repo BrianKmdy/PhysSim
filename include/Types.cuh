@@ -7,6 +7,11 @@ __host__ __device__ int2 operator-(const int2& a, const int2& b);
 __host__ __device__ int2 operator*(const int2& a, const int2& b);
 __host__ __device__ int2 operator/(const int2& a, const int2& b);
 
+__host__ __device__ int2 operator+(const int2& a, const int& b);
+__host__ __device__ int2 operator-(const int2& a, const int& b);
+__host__ __device__ int2 operator*(const int2& a, const int& b);
+__host__ __device__ int2 operator/(const int2& a, const int& b);
+
 __host__ __device__ int3 operator+(const int3& a, const int3& b);
 __host__ __device__ int3 operator-(const int3& a, const int3& b);
 __host__ __device__ int3 operator*(const int3& a, const int3& b);

@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <algorithm>
 #include <string>
+#include <random>
+#include <fstream>
 
 #include "Core.h"
 
@@ -157,26 +159,83 @@ void printf3(float3 f3)
 	std::cout << std::endl;
 }
 
-Core loadConfig()
+void loadConfig(Instance* instance)
 {
 	YAML::Node config = YAML::LoadFile("config.yaml");
-	for (YAML::const_iterator it = config.begin(); it != config.end(); ++it) {
-		std::cout << it->first.as<std::string>() << ": " << it->second.as<std::string>() << "\n";
+
+	instance->dimensions = config["dimensions"].as<int>();
+	instance->divisions = config["divisions"].as<int>();
+	instance->nParticles = config["nParticles"].as<int>();
+
+	// Initialize a random number generator for the particles
+	std::random_device rd;
+	std::mt19937 mt(rd());
+	std::uniform_real_distribution<float> dist((instance->dimensions / 2) * -1, instance->dimensions / 2);
+
+	// Create the particles
+	instance->particles = new Particle[instance->nParticles];
+	for (int i = 0; i < instance->nParticles; i++) {
+		instance->particles[i].position = make_float2(dist(mt), dist(mt));
+		instance->particles[i].velocity = make_float2(0.0f, 0.0f);
+		instance->particles[i].mass = 1.0f;
 	}
 
+	// Create the boxes
+	instance->nBoxes = instance->divisions * instance->divisions;
+	instance->boxSize = instance->dimensions / instance->divisions;
+	instance->boxes = new Box[instance->nBoxes];
+}
 
+void dumpState(Instance* instance, std::string name)
+{
+	YAML::Node data;
 
-	return Core(0, 0, 0, 0);
+	data["nBoxes"] = instance->nBoxes;
+	for (int i = 0; i < instance->nBoxes; i++) {
+		data["boxes"][i]["mass"] = instance->boxes[i].mass;
+		data["boxes"][i]["mass x"] = instance->boxes[i].centerMass.x;
+		data["boxes"][i]["mass y"] = instance->boxes[i].centerMass.y;
+
+		for (int o = 0; o < instance->boxes[i].nParticles; o++) {
+			data["boxes"][i][o]["mass"] = instance->boxes[i].particles[o].mass;
+			data["boxes"][i][o]["x"] = instance->boxes[i].particles[o].position.x;
+			data["boxes"][i][o]["y"] = instance->boxes[i].particles[o].position.y;
+		}
+	}
+
+	data["nParticles"] = instance->nParticles;
+	for (int i = 0; i < instance->nParticles; i++) {
+		data["particles"][i]["mass"] = instance->particles[i].mass;
+		data["particles"][i]["x"] = instance->particles[i].position.x;
+		data["particles"][i]["y"] = instance->particles[i].position.y;
+	}
+
+	std::ofstream fout(name + ".yaml");
+	fout << data;
 }
 
 int main()
 {
+	Core core;
+
 	try {
-		Core core = loadConfig();
-		core.run();
+		loadConfig(core.getInstance());
 	}
 	catch (std::exception& e) {
-		std::cout << "Error: " << e.what() << std::endl;
+		std::cout << "Error loading config: " << e.what() << std::endl;
+
+		return -1;
+	}
+
+	try {
+		dumpState(core.getInstance(), "before");
+		core.run();
+		dumpState(core.getInstance(), "after");
+	}
+	catch (std::exception& e) {
+		std::cout << "Error running simulation: " << e.what() << std::endl;
+
+		return -1;
 	}
 
 	return 0;

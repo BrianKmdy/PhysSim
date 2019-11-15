@@ -39,15 +39,47 @@ __host__ void unInitialize()
 
 __host__ void simulate(Instance* instance)
 {
+	// Build the list of particles and the center of mass for each box
+	std::vector<std::vector<Particle>> boxParticles;
+	for (int i = 0; i < instance->nBoxes; i++) {
+		instance->boxes[i].mass = 0.0f;
+		instance->boxes[i].centerMass = make_float2(0.0, 0.0);
+
+		boxParticles.push_back(std::vector<Particle>());
+	}
+
+	for (int i = 0; i < instance->nParticles; i++) {
+		int boxId = instance->getBoxIndex(instance->particles[i].position);
+
+		instance->boxes[boxId].centerMass = (instance->boxes[boxId].centerMass * instance->boxes[boxId].mass + instance->particles[i].position * instance->particles[i].mass)
+											/ (instance->boxes[boxId].mass + instance->particles[i].mass);
+		instance->boxes[boxId].mass += instance->particles[i].mass;
+
+		boxParticles[boxId].push_back(instance->particles[i]);
+	}
+
+	// XXX/bmoody For testing
+	for (int i = 0; i < instance->nBoxes; i++) {
+		instance->boxes[i].nParticles = boxParticles[i].size();
+		instance->boxes[i].particles = new Particle[boxParticles[i].size()];
+		memcpy(instance->boxes[i].particles, boxParticles[i].data(), boxParticles[i].size() * sizeof(Particle));
+	}
 
 }
 
-__global__ void kernel()
+__global__ void kernel(Instance* instance)
 {
 
 }
 
-__device__ int getBox()
+__host__ __device__ unsigned int Instance::size()
 {
-	return 5;
+	return 1;
+}
+
+__host__ __device__ int Instance::getBoxIndex(float2 position)
+{
+	int2 index = (position + (dimensions / 2)) / boxSize;
+
+	return index.x * divisions + index.y;
 }
