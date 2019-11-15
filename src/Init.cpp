@@ -6,8 +6,8 @@
 
 #include "Core.h"
 
-#include "kernel.cuh"
-#include "types.cuh"
+#include "Simulate.cuh"
+#include "Types.cuh"
 
 #include "yaml-cpp/yaml.h"
 
@@ -157,18 +157,27 @@ void printf3(float3 f3)
 	std::cout << std::endl;
 }
 
-int main()
+Core loadConfig()
 {
-	// float* test = new float[size];
-	// test_loop(test);
-
 	YAML::Node config = YAML::LoadFile("config.yaml");
 	for (YAML::const_iterator it = config.begin(); it != config.end(); ++it) {
 		std::cout << it->first.as<std::string>() << ": " << it->second.as<std::string>() << "\n";
 	}
 
 
-	std::cin.get();
+
+	return Core(0, 0, 0, 0);
+}
+
+int main()
+{
+	try {
+		Core core = loadConfig();
+		core.run();
+	}
+	catch (std::exception& e) {
+		std::cout << "Error: " << e.what() << std::endl;
+	}
 
 	return 0;
 }

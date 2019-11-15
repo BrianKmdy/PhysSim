@@ -1,7 +1,8 @@
-#include <algorithm>
+#include "Simulate.cuh"
 
-#include "kernel.cuh"
+const static constexpr int nThreads = 512;
 
+std::vector<Instance> gDeviceMemory;
 
 __global__
 void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out)
@@ -23,5 +24,30 @@ void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* dat
 {
 	unsigned int numThreads = 512;
 
-	bigloop << <(n + numThreads - 1) / numThreads, numThreads >> > (n, deviceBatchSize, deviceId, static_cast<unsigned int>(std::min((deviceId + 1) * deviceBatchSize, n)), data_in, data_out);
+	// bigloop << <(n + numThreads - 1) / numThreads, numThreads >> > (n, deviceBatchSize, deviceId, static_cast<unsigned int>(std::min((deviceId + 1) * deviceBatchSize, n)), data_in, data_out);
+}
+
+__host__ void initialize(Instance* instance)
+{
+
+}
+
+__host__ void unInitialize()
+{
+
+}
+
+__host__ void simulate(Instance* instance)
+{
+
+}
+
+__global__ void kernel()
+{
+
+}
+
+__device__ int getBox()
+{
+	return 5;
 }

@@ -26,39 +26,21 @@
 
 #include <vector>
 
-#include "kernel.cuh"
+#include "Simulate.cuh"
+#include "Types.cuh"
 
 class Core
 {
-    private:
-        bool interParticleGravity;
-
-		Particle* particles;
-		int nParticles;
-
-		Particle* massiveParticles;
-		int nMassiveParticles;
-
-		float timeStep;
-		unsigned int stepsPerFrame;
-		unsigned int framesPerSecond;
-
-		unsigned long stepCount;
-
 public:
-        Core(float width = 0.0, float height = 0.0, bool interParticleGravity = false);
+    Core(int dimensions, int divisions, int nParticles, Particle* particles);
+	~Core();
 
-		void setTimeStep(float timeStep);
-		void setStepsPerFrame(float stepsPerFrame);
-		void setFramesPerSecond(float framesPerSecond);
+	void run();
+private:
+	int dimensions;
+	int divisions;
 
-		void addParticles(Particle* particles, int nParticles);
-		void addMassiveParticles(Particle* massiveParticles, int nMassiveParticles);
-
-
-        void run();
-
-		float radius;
+	Instance instance;
 };
 
 #endif // CORE_H
