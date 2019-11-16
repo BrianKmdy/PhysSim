@@ -36,8 +36,11 @@ struct Instance
 	int nBoxes;
 	Box* boxes;
 
-	__host__ __device__ unsigned int size();
 	__host__ __device__ int getBoxIndex(float2 position);
+
+	__host__ unsigned int size();
+	__host__ void copyDeep(Instance* instance);
+	__host__ void copyParticles(Instance* instance);
 };
 
 __global__

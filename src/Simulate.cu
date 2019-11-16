@@ -2,7 +2,7 @@
 
 const static constexpr int nThreads = 512;
 
-std::vector<Instance> gDeviceMemory;
+std::vector<Instance*> gDeviceMemory;
 
 __global__
 void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out)
@@ -29,12 +29,26 @@ void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* dat
 
 __host__ void initialize(Instance* instance)
 {
+	int nDevices;
+	cudaGetDeviceCount(&nDevices);
 
+	for (int i = 0; i < nDevices; i++) {
+		cudaSetDevice(i);
+
+		gDeviceMemory.push_back(nullptr);
+		cudaMalloc(&gDeviceMemory[i], instance->size());
+	}
 }
 
 __host__ void unInitialize()
 {
+	int nDevices;
+	cudaGetDeviceCount(&nDevices);
 
+	for (int i = 0; i < nDevices; i++) {
+		cudaFree(gDeviceMemory[i]);
+		cudaDeviceReset();
+	}
 }
 
 __host__ void simulate(Instance* instance)
@@ -72,14 +86,63 @@ __global__ void kernel(Instance* instance)
 
 }
 
-__host__ __device__ unsigned int Instance::size()
-{
-	return 1;
-}
-
 __host__ __device__ int Instance::getBoxIndex(float2 position)
 {
 	int2 index = (position + (dimensions / 2)) / boxSize;
 
 	return index.x * divisions + index.y;
 }
+
+__host__ unsigned int Instance::size()
+{
+	return sizeof(Instance) + (2 * sizeof(Particle) * nParticles) + (sizeof(Box) * nBoxes);
+}
+
+__host__ void Instance::copyDeep(Instance* instance)
+{
+	char* pointer = reinterpret_cast<char*>(instance);
+
+	// Copy the instance object
+	memcpy(instance, this, sizeof(Instance));
+	pointer += sizeof(Instance);
+
+	// Copy the particles
+	if (nParticles > 0) {
+		memcpy(pointer, particles, nParticles * sizeof(Particle));
+		instance->particles = reinterpret_cast<Particle*>(pointer);
+		instance->nParticles = nParticles;
+		pointer += nParticles * sizeof(Particle);
+	}
+
+	// Copy the boxes
+	if (nBoxes > 0) {
+		memcpy(pointer, boxes, nBoxes * sizeof(Box));
+		instance->boxes = reinterpret_cast<Box*>(pointer);
+		instance->nBoxes = nBoxes;
+		pointer += nBoxes * sizeof(Box);
+	}
+
+	// For each box copy the particles within that box
+	for (int i = 0; i < nBoxes; i++) {
+		if (boxes[i].nParticles > 0) {
+			memcpy(pointer, boxes[i].particles, boxes[i].nParticles * sizeof(Particle));
+			instance->boxes[i].particles = reinterpret_cast<Particle*>(pointer);
+			instance->boxes[i].nParticles = boxes[i].nParticles;
+			pointer += boxes[i].nParticles * sizeof(Particle);
+		}
+	}
+}
+
+__host__ void Instance::copyParticles(Instance* instance)
+{
+	char* pointer = reinterpret_cast<char*>(instance);
+
+	// Copy the particles
+	if (nParticles > 0) {
+		memcpy(pointer, particles, nParticles * sizeof(Particle));
+		instance->particles = reinterpret_cast<Particle*>(pointer);
+		instance->nParticles = nParticles;
+		pointer += nParticles * sizeof(Particle);
+	}
+}
+

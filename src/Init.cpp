@@ -5,17 +5,25 @@
 #include <string>
 #include <random>
 #include <fstream>
+#include <csignal>
 
 #include "Core.h"
 
 #include "Simulate.cuh"
 #include "Types.cuh"
 
+#include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
 #include <thread>
 
 const unsigned int size = 10000000;
+
+Core gCore;
+
+void signalHandler(int signum) {
+	gCore.kill();
+}
 
 void load_yaml()
 {
@@ -161,6 +169,8 @@ void printf3(float3 f3)
 
 void loadConfig(Instance* instance)
 {
+	spdlog::info("Loading config");
+
 	YAML::Node config = YAML::LoadFile("config.yaml");
 
 	instance->dimensions = config["dimensions"].as<int>();
@@ -216,24 +226,25 @@ void dumpState(Instance* instance, std::string name)
 
 int main()
 {
-	Core core;
+	// Create the signal handler in order to stop the simulation
+	signal(SIGINT, signalHandler);
 
 	try {
-		loadConfig(core.getInstance());
+		loadConfig(gCore.getInstance());
 	}
 	catch (std::exception& e) {
-		std::cout << "Error loading config: " << e.what() << std::endl;
+		spdlog::error("Error loading config: {}", e.what());
 
 		return -1;
 	}
 
 	try {
-		dumpState(core.getInstance(), "before");
-		core.run();
-		dumpState(core.getInstance(), "after");
+		dumpState(gCore.getInstance(), "before");
+		gCore.run();
+		dumpState(gCore.getInstance(), "after");
 	}
 	catch (std::exception& e) {
-		std::cout << "Error running simulation: " << e.what() << std::endl;
+		spdlog::error("Error running simulation: {}", e.what());
 
 		return -1;
 	}

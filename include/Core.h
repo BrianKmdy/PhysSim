@@ -1,5 +1,4 @@
-#ifndef CORE_H
-#define CORE_H
+#pragma once
 
 // I propose a new fundamental force as the possible source for gravity. I imagine that everywhere in space there is a fluid
 // called the cosmic medium which is infinitely compressible and seeks to spread out as much as possible. What we recognize
@@ -37,10 +36,12 @@ public:
 	~Core();
 
 	Instance* getInstance();
+	void verifyConfiguration();
 
 	void run();
+	void kill();
 private:
+	volatile bool alive;
+
 	Instance* instance;
 };
-
-#endif // CORE_H
