@@ -4,8 +4,8 @@
 
 #include "Core.h"
 
-Core::Core() :
-	Core(new Instance())
+Core::Core():
+	Core(nullptr)
 {
 }
 
@@ -17,19 +17,21 @@ Core::Core(Instance* instance):
 
 Core::~Core()
 {
-	if (instance) {
-		if (instance->particles)
-			delete[] instance->particles;
-		if (instance->boxes)
-			delete[] instance->boxes;
-
-		delete instance;
-	}
+	if (instance)
+		delete[] reinterpret_cast<char*>(instance);
 }
 
 Instance* Core::getInstance()
 {
 	return instance;
+}
+
+void Core::setInstance(Instance* instance)
+{
+	if (this->instance)
+		delete[] reinterpret_cast<char*>(this->instance);
+
+	this->instance = instance;
 }
 
 void Core::verifyConfiguration()

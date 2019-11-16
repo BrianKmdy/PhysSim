@@ -36,6 +36,8 @@ public:
 	~Core();
 
 	Instance* getInstance();
+	void setInstance(Instance* instance);
+
 	void verifyConfiguration();
 
 	void run();

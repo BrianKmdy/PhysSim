@@ -167,33 +167,41 @@ void printf3(float3 f3)
 	std::cout << std::endl;
 }
 
-void loadConfig(Instance* instance)
+Instance* loadConfig()
 {
 	spdlog::info("Loading config");
-
 	YAML::Node config = YAML::LoadFile("config.yaml");
 
-	instance->dimensions = config["dimensions"].as<int>();
-	instance->divisions = config["divisions"].as<int>();
-	instance->nParticles = config["nParticles"].as<int>();
+	// Load the environment setup from the config
+	int dimensions = config["dimensions"].as<int>();
+	int divisions = config["divisions"].as<int>();
+	int nParticles = config["nParticles"].as<int>();
+	int nBoxes = divisions * divisions;
+	int boxSize = dimensions / divisions;
+
+	// Create the instance for this simulation
+	Instance* instance = reinterpret_cast<Instance*>(new char[Instance::size(nParticles, nBoxes)]);
+	instance->dimensions = dimensions;
+	instance->divisions = divisions;
+	instance->nParticles = nParticles;
+	instance->nBoxes = nBoxes;
+	instance->boxSize = boxSize;
+
+	instance->initialize();
 
 	// Initialize a random number generator for the particles
 	std::random_device rd;
 	std::mt19937 mt(rd());
-	std::uniform_real_distribution<float> dist((instance->dimensions / 2) * -1, instance->dimensions / 2);
+	std::uniform_real_distribution<float> dist((dimensions / 2) * -1, dimensions / 2);
 
 	// Create the particles
-	instance->particles = new Particle[instance->nParticles];
 	for (int i = 0; i < instance->nParticles; i++) {
 		instance->particles[i].position = make_float2(dist(mt), dist(mt));
 		instance->particles[i].velocity = make_float2(0.0f, 0.0f);
 		instance->particles[i].mass = 1.0f;
 	}
 
-	// Create the boxes
-	instance->nBoxes = instance->divisions * instance->divisions;
-	instance->boxSize = instance->dimensions / instance->divisions;
-	instance->boxes = new Box[instance->nBoxes];
+	return instance;
 }
 
 void dumpState(Instance* instance, std::string name)
@@ -230,7 +238,7 @@ int main()
 	signal(SIGINT, signalHandler);
 
 	try {
-		loadConfig(gCore.getInstance());
+		gCore.setInstance(loadConfig());
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error loading config: {}", e.what());
@@ -242,6 +250,11 @@ int main()
 		dumpState(gCore.getInstance(), "before");
 		gCore.run();
 		dumpState(gCore.getInstance(), "after");
+		Instance* instance = gCore.getInstance();
+		Instance* instanceCopy = reinterpret_cast<Instance*>(new char[instance->size()]);
+		instance->copyFull(instanceCopy);
+		dumpState(instanceCopy, "afterCopy");
+		delete[] reinterpret_cast<char*>(instanceCopy);
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error running simulation: {}", e.what());
