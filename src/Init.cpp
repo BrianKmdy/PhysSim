@@ -189,18 +189,17 @@ Instance* loadConfig()
 	instance->nBoxes = nBoxes;
 	instance->boxSize = boxSize;
 
-	initializeInstance(instance);
-
 	// Initialize a random number generator for the particles
 	std::random_device rd;
 	std::mt19937 mt(rd());
 	std::uniform_real_distribution<float> dist((dimensions / 2) * -1, dimensions / 2);
 
 	// Create the particles
+	Particle* particles = instance->getParticles();
 	for (int i = 0; i < instance->nParticles; i++) {
-		instance->particles[i].position = make_float2(dist(mt), dist(mt));
-		instance->particles[i].velocity = make_float2(0.0f, 0.0f);
-		instance->particles[i].mass = 1.0f;
+		particles[i].position = make_float2(dist(mt), dist(mt));
+		particles[i].velocity = make_float2(0.0f, 0.0f);
+		particles[i].mass = 1.0f;
 	}
 
 	return instance;
@@ -210,25 +209,28 @@ void dumpState(Instance* instance, std::string name)
 {
 	YAML::Node data;
 
+	Box* boxes = instance->getBoxes();
 	data["nBoxes"] = instance->nBoxes;
 	for (int i = 0; i < instance->nBoxes; i++) {
-		data["boxes"][i]["mass"] = instance->boxes[i].mass;
-		data["boxes"][i]["mass x"] = instance->boxes[i].centerMass.x;
-		data["boxes"][i]["mass y"] = instance->boxes[i].centerMass.y;
-		data["boxes"][i]["nParticles"] = instance->boxes[i].nParticles;
+		data["boxes"][i]["mass"] = boxes[i].mass;
+		data["boxes"][i]["mass x"] = boxes[i].centerMass.x;
+		data["boxes"][i]["mass y"] = boxes[i].centerMass.y;
+		data["boxes"][i]["nParticles"] = boxes[i].nParticles;
 
-		for (int o = 0; o < instance->boxes[i].nParticles; o++) {
-			data["boxes"][i][o]["mass"] = instance->boxes[i].particles[o].mass;
-			data["boxes"][i][o]["x"] = instance->boxes[i].particles[o].position.x;
-			data["boxes"][i][o]["y"] = instance->boxes[i].particles[o].position.y;
+		for (int o = 0; o < boxes[i].nParticles; o++) {
+			Particle* boxParticles = instance->getBoxParticles();
+			data["boxes"][i][o]["mass"] = boxParticles[boxes[i].particleOffset].mass;
+			data["boxes"][i][o]["x"] = boxParticles[boxes[i].particleOffset].position.x;
+			data["boxes"][i][o]["y"] = boxParticles[boxes[i].particleOffset].position.y;
 		}
 	}
 
+	Particle* particles = instance->getParticles();
 	data["nParticles"] = instance->nParticles;
 	for (int i = 0; i < instance->nParticles; i++) {
-		data["particles"][i]["mass"] = instance->particles[i].mass;
-		data["particles"][i]["x"] = instance->particles[i].position.x;
-		data["particles"][i]["y"] = instance->particles[i].position.y;
+		data["particles"][i]["mass"] = particles[i].mass;
+		data["particles"][i]["x"] = particles[i].position.x;
+		data["particles"][i]["y"] = particles[i].position.y;
 	}
 
 	std::ofstream fout(name + ".yaml");
@@ -237,7 +239,7 @@ void dumpState(Instance* instance, std::string name)
 
 int main()
 {
-	// Create the signal handler in order to stop the simulation
+	// Create a signal handler in order to stop the simulation
 	signal(SIGINT, signalHandler);
 
 	try {

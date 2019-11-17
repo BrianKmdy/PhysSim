@@ -21,25 +21,26 @@ struct Box
 	float2 centerMass;
 
 	int nParticles;
-	Particle* particles;
+	int particleOffset;
 };
 
 struct Instance
 {
 	int dimensions;
 	int divisions;
+	int boxSize;
 
 	int nParticles;
-	Particle* particles;
-
-	int boxSize;
 	int nBoxes;
-	Box* boxes;
 
 	__host__ __device__ int getBoxIndex(float2 position);
 
 	__host__ unsigned int size();
 	__host__ static unsigned int size(int nParticles, int nBoxes);
+
+	__host__ __device__ Particle* getParticles();
+	__host__ __device__ Box* getBoxes();
+	__host__ __device__ Particle* getBoxParticles(int particleOffset = 0);
 };
 
 __global__
@@ -48,8 +49,6 @@ void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* dat
 
 __host__ void initialize(Instance* instance);
 __host__ void unInitialize();
-
-__host__ void initializeInstance(Instance* instance);
 
 __host__ void simulate(Instance* instance);
 __global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance);

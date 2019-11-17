@@ -53,39 +53,35 @@ __host__ void unInitialize()
 
 __host__ void simulate(Instance* instance)
 {
+	Particle* particles = instance->getParticles();
+	Box* boxes = instance->getBoxes();
+
 	// Build the list of particles and the center of mass for each box
 	std::vector<std::vector<Particle>> boxParticles;
 	for (int i = 0; i < instance->nBoxes; i++) {
-		instance->boxes[i].mass = 0.0f;
-		instance->boxes[i].centerMass = make_float2(0.0, 0.0);
+		boxes[i].mass = 0.0f;
+		boxes[i].centerMass = make_float2(0.0, 0.0);
 
 		boxParticles.push_back(std::vector<Particle>());
 	}
 
 	// Assign each particle to a box and add its mass to the box
 	for (int i = 0; i < instance->nParticles; i++) {
-		int boxId = instance->getBoxIndex(instance->particles[i].position);
+		int boxId = instance->getBoxIndex(particles[i].position);
 
-		instance->boxes[boxId].centerMass = (instance->boxes[boxId].centerMass * instance->boxes[boxId].mass + instance->particles[i].position * instance->particles[i].mass)
-											/ (instance->boxes[boxId].mass + instance->particles[i].mass);
-		instance->boxes[boxId].mass += instance->particles[i].mass;
+		boxes[boxId].centerMass = (boxes[boxId].centerMass * boxes[boxId].mass + particles[i].position * particles[i].mass)
+											/ (boxes[boxId].mass + particles[i].mass);
+		boxes[boxId].mass += particles[i].mass;
 
-		boxParticles[boxId].push_back(instance->particles[i]);
+		boxParticles[boxId].push_back(particles[i]);
 	}
 
 	// Copy the particles from the temporary boxes over to the instance
-	Particle* particlePointer = reinterpret_cast<Particle*>(instance->boxes + instance->nBoxes);
+	int particleOffset = 0;
 	for (int i = 0; i < instance->nBoxes; i++) {
-		instance->boxes[i].nParticles = boxParticles[i].size();
-
-		if (boxParticles[i].size() > 0) {
-			instance->boxes[i].particles = particlePointer;
-			memcpy(particlePointer, boxParticles[i].data(), boxParticles[i].size() * sizeof(Particle));
-			particlePointer += boxParticles[i].size();
-		}
-		else {
-			instance->boxes[i].particles = nullptr;
-		}
+		boxes[i].nParticles = boxParticles[i].size();
+		boxes[i].particleOffset = particleOffset;
+		particleOffset += boxParticles[i].size();
 	}
 
 	int nDevices;
@@ -96,8 +92,6 @@ __host__ void simulate(Instance* instance)
 		cudaSetDevice(i);
 
 		cudaMemcpy(gDeviceInstances[i], instance, instance->size(), cudaMemcpyHostToDevice);
-		initializeInstance(gDeviceInstances[i]);
-
 		kernel<<<(instance->nParticles + nThreads - 1) / nThreads, nThreads>>> (i, 0, 0, gDeviceInstances[i]);
 	}
 
@@ -106,14 +100,13 @@ __host__ void simulate(Instance* instance)
 		cudaSetDevice(i);
 
 		cudaDeviceSynchronize();
-
 		cudaMemcpy(instance, gDeviceInstances[i], instance->size(), cudaMemcpyDeviceToHost);
-		initializeInstance(instance);
 	}
 }
 
 __global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance)
 {
+	Particle* particles = instance->getParticles();
 	// unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
 	// unsigned int stride = blockDim.x * gridDim.x;
 
@@ -121,7 +114,7 @@ __global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int 
 	unsigned int stride = blockDim.x * gridDim.x;
 
 	for (unsigned int i = index; i < instance->nParticles; i += stride) {
-		instance->particles[i].mass = i;
+		particles[i].mass = i;
 	}
 }
 
@@ -142,24 +135,17 @@ __host__ unsigned int Instance::size(int nParticles, int nBoxes)
 	return sizeof(Instance) + (2 * sizeof(Particle) * nParticles) + (sizeof(Box) * nBoxes);
 }
 
-__host__ void initializeInstance(Instance* instance)
+__host__ __device__ Particle* Instance::getParticles()
 {
-	char* pointer = reinterpret_cast<char*>(instance);
-	pointer += sizeof(Instance);
+	return reinterpret_cast<Particle*>(reinterpret_cast<char*>(this) + sizeof(Instance));
+}
 
-	instance->particles = reinterpret_cast<Particle*>(pointer);
-	pointer += instance->nParticles * sizeof(Particle);
+__host__ __device__ Box* Instance::getBoxes()
+{
+	return reinterpret_cast<Box*>(reinterpret_cast<char*>(this) + sizeof(Instance) + nParticles * sizeof(Particle));
+}
 
-	instance->boxes = reinterpret_cast<Box*>(pointer);
-	pointer += instance->nBoxes * sizeof(Box);
-
-	for (int i = 0; i < instance->nBoxes; i++) {
-		if (instance->boxes[i].nParticles > 0) {
-			instance->boxes[i].particles = reinterpret_cast<Particle*>(pointer);
-			pointer += instance->boxes[i].nParticles * sizeof(Particle);
-		}
-		else {
-			instance->boxes[i].particles = nullptr;
-		}
-	}
+__host__ __device__ Particle* Instance::getBoxParticles(int particleOffset)
+{
+	return reinterpret_cast<Particle*>(reinterpret_cast<char*>(this) + sizeof(Instance) + nParticles * sizeof(Particle) + nBoxes * sizeof(Box) + particleOffset * sizeof(Particle));
 }
