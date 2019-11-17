@@ -22,24 +22,8 @@ const unsigned int size = 10000000;
 Core gCore;
 
 void signalHandler(int signum) {
+	spdlog::info("Terminate signal received by user");
 	gCore.kill();
-}
-
-void load_yaml()
-{
-
-}
-
-void bigloop_cpu(unsigned int n, float* data_in, float* data_out)
-{
-	for (unsigned int i = 0; i < n; i += 1) {
-		float lol = 0.0;
-		for (unsigned int o = 0; o < n; o++) {
-			lol += data_in[o];
-		}
-
-		data_out[i] = lol;
-	}
 }
 
 void print_data(float* data)
@@ -50,48 +34,6 @@ void print_data(float* data)
 	for (unsigned int i = size - 10; i < size; i++)
 		std::cout << data[i] << " ";
 	std::cout << std::endl;
-	std::cout << std::endl;
-}
-
-void test_cpu()
-{
-	std::cout << "Allocating memory for input data" << std::endl;
-	float* data_in = new float[size];
-	std::cout << "Allocating memory for output data" << std::endl;
-	float* data_out = new float[size];
-
-	for (unsigned int i = 0; i < size; i++)
-	{
-		data_in[i] = 1.0 / float(i + 1);
-	}
-
-	print_data(data_in);
-
-	std::cout << "Running test" << std::endl;
-	auto time = std::chrono::high_resolution_clock::now();
-	bigloop_cpu(size, data_in, data_out);
-
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - time);
-	std::cout << "Total time: " << duration.count() << "ms" << std::endl;
-	std::cout << std::endl;
-
-	print_data(data_out);
-}
-
-void test_loop(float* test)
-{
-	std::cout << "Running test" << std::endl;
-	auto time = std::chrono::high_resolution_clock::now();
-
-	float lol = 0.0;
-	for (int i = 0; i < size; i++)
-	{
-		lol += 1.0;
-		test[i] = lol;
-	}
-
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - time);
-	std::cout << "Total time: " << duration.count() << "ms" << std::endl;
 	std::cout << std::endl;
 }
 
@@ -159,15 +101,7 @@ void test_cuda()
 	cudaDeviceReset();
 }
 
-void printf3(float3 f3)
-{
-	std::cout << "x: " << f3.x << " ";
-	std::cout << "y: " << f3.y << " ";
-	std::cout << "z: " << f3.z << " ";
-	std::cout << std::endl;
-}
-
-Instance* loadConfig()
+void loadConfig()
 {
 	spdlog::info("Loading config");
 	YAML::Node config = YAML::LoadFile("config.yaml");
@@ -202,7 +136,14 @@ Instance* loadConfig()
 		particles[i].mass = 1.0f;
 	}
 
-	return instance;
+	if (config["kernel"].IsDefined()) {
+		gCore.setKernel(config["kernel"].as<std::string>());
+	}
+
+	if (config["framesPerWrite"].IsDefined())
+		gCore.setFramesPerWrite(config["framesPerWrite"].as<int>());
+
+	gCore.setInstance(instance);
 }
 
 void dumpState(Instance* instance, std::string name)
@@ -219,9 +160,9 @@ void dumpState(Instance* instance, std::string name)
 
 		for (int o = 0; o < boxes[i].nParticles; o++) {
 			Particle* boxParticles = instance->getBoxParticles();
-			data["boxes"][i][o]["mass"] = boxParticles[boxes[i].particleOffset].mass;
-			data["boxes"][i][o]["x"] = boxParticles[boxes[i].particleOffset].position.x;
-			data["boxes"][i][o]["y"] = boxParticles[boxes[i].particleOffset].position.y;
+			data["boxes"][i][o]["mass"] = boxParticles[boxes[i].particleOffset + o].mass;
+			data["boxes"][i][o]["x"] = boxParticles[boxes[i].particleOffset + o].position.x;
+			data["boxes"][i][o]["y"] = boxParticles[boxes[i].particleOffset + o].position.y;
 		}
 	}
 
@@ -243,7 +184,7 @@ int main()
 	signal(SIGINT, signalHandler);
 
 	try {
-		gCore.setInstance(loadConfig());
+		loadConfig();
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error loading config: {}", e.what());

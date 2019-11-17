@@ -24,6 +24,7 @@
 // 11/14/2019
 
 #include <vector>
+#include <chrono>
 
 #include "Simulate.cuh"
 #include "Types.cuh"
@@ -37,8 +38,13 @@ public:
 
 	Instance* getInstance();
 	void setInstance(Instance* instance);
+	void setFramesPerWrite(int framesPerWrite);
+	void setKernel(std::string kernelName);
 
 	void verifyConfiguration();
+
+	std::chrono::milliseconds getMilliseconds();
+	std::chrono::milliseconds writeToDisk();
 
 	void run();
 	void kill();
@@ -46,4 +52,11 @@ private:
 	volatile bool alive;
 
 	Instance* instance;
+
+	int framesPerWrite;
+	int kernel;
+	std::string kernelName;
+
+	int frame;
+	std::chrono::milliseconds frameTime;
 };

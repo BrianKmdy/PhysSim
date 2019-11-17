@@ -1,7 +1,5 @@
 #include "Simulate.cuh"
 
-const static constexpr int nThreads = 512;
-
 std::vector<Instance*> gDeviceInstances;
 
 __global__
@@ -27,7 +25,7 @@ void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* dat
 	// bigloop << <(n + numThreads - 1) / numThreads, numThreads >> > (n, deviceBatchSize, deviceId, static_cast<unsigned int>(std::min((deviceId + 1) * deviceBatchSize, n)), data_in, data_out);
 }
 
-__host__ void initialize(Instance* instance)
+__host__ void initializeCuda(Instance* instance)
 {
 	int nDevices;
 	cudaGetDeviceCount(&nDevices);
@@ -40,7 +38,7 @@ __host__ void initialize(Instance* instance)
 	}
 }
 
-__host__ void unInitialize()
+__host__ void unInitializeCuda()
 {
 	int nDevices;
 	cudaGetDeviceCount(&nDevices);
@@ -55,14 +53,15 @@ __host__ void simulate(Instance* instance)
 {
 	Particle* particles = instance->getParticles();
 	Box* boxes = instance->getBoxes();
+	Particle* boxParticles = instance->getBoxParticles();
 
 	// Build the list of particles and the center of mass for each box
-	std::vector<std::vector<Particle>> boxParticles;
+	std::vector<std::vector<Particle>> tempBoxes;
 	for (int i = 0; i < instance->nBoxes; i++) {
 		boxes[i].mass = 0.0f;
 		boxes[i].centerMass = make_float2(0.0, 0.0);
 
-		boxParticles.push_back(std::vector<Particle>());
+		tempBoxes.push_back(std::vector<Particle>());
 	}
 
 	// Assign each particle to a box and add its mass to the box
@@ -73,15 +72,16 @@ __host__ void simulate(Instance* instance)
 											/ (boxes[boxId].mass + particles[i].mass);
 		boxes[boxId].mass += particles[i].mass;
 
-		boxParticles[boxId].push_back(particles[i]);
+		tempBoxes[boxId].push_back(particles[i]);
 	}
 
 	// Copy the particles from the temporary boxes over to the instance
 	int particleOffset = 0;
 	for (int i = 0; i < instance->nBoxes; i++) {
-		boxes[i].nParticles = boxParticles[i].size();
+		boxes[i].nParticles = tempBoxes[i].size();
 		boxes[i].particleOffset = particleOffset;
-		particleOffset += boxParticles[i].size();
+		memcpy(boxParticles + particleOffset, tempBoxes[i].data(), tempBoxes[i].size() * sizeof(Particle));
+		particleOffset += tempBoxes[i].size();
 	}
 
 	int nDevices;
@@ -92,7 +92,7 @@ __host__ void simulate(Instance* instance)
 		cudaSetDevice(i);
 
 		cudaMemcpy(gDeviceInstances[i], instance, instance->size(), cudaMemcpyHostToDevice);
-		kernel<<<(instance->nParticles + nThreads - 1) / nThreads, nThreads>>> (i, 0, 0, gDeviceInstances[i]);
+		kernel<<<(instance->nParticles + nThreads - 1) / nThreads, nThreads>>>(i, 0, 0, gDeviceInstances[i]);
 	}
 
 	// Synchronize with devices and copy the udpated instance back

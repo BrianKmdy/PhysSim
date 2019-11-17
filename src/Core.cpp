@@ -1,4 +1,5 @@
 #include <map>
+#include <fstream>
 
 #include "spdlog/spdlog.h"
 
@@ -11,7 +12,12 @@ Core::Core():
 
 Core::Core(Instance* instance):
 	alive(true),
-	instance(instance)
+	instance(instance),
+	frame(0),
+	framesPerWrite(1),
+	kernel(Kernel::unknown),
+	kernelName("not set"),
+	frameTime(std::chrono::milliseconds(0))
 {
 }
 
@@ -32,6 +38,17 @@ void Core::setInstance(Instance* instance)
 		delete[] reinterpret_cast<char*>(this->instance);
 
 	this->instance = instance;
+}
+
+void Core::setKernel(std::string kernelName)
+{
+	this->kernel = Kernel::fromString[kernelName];
+	this->kernelName = kernelName;
+}
+
+void Core::setFramesPerWrite(int framesPerWrite)
+{
+	this->framesPerWrite = framesPerWrite;
 }
 
 void Core::verifyConfiguration()
@@ -55,6 +72,19 @@ void Core::verifyConfiguration()
 	if (instance->divisions & (instance->divisions - 1))
 		errors["divisions"].push_back("must be a power of 2");
 
+	values["nParticles"] = std::to_string(instance->nParticles);
+	values["nBoxes"] = std::to_string(instance->nBoxes);
+
+	// Check the kernel
+	values["kernel"] = kernelName;
+	if (kernel == Kernel::unknown)
+		errors["kernel"].push_back("invalid kernel");
+
+	// Check the frames per write
+	values["framesPerWrite"] = std::to_string(framesPerWrite);
+	if (framesPerWrite < 0)
+		errors["framesPerWrite"].push_back("must be positive");
+
 	for (auto& pair : values) {
 		if (errors.find(pair.first) == errors.end()) {
 			spdlog::info(pair.first + ": " + pair.second);
@@ -74,31 +104,53 @@ void Core::verifyConfiguration()
 		throw std::exception("Invalid configuration");
 }
 
+std::chrono::milliseconds Core::getMilliseconds()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
+}
+
+std::chrono::milliseconds Core::writeToDisk()
+{
+	// If it's not time to write then just return 0ms
+	if (frame % framesPerWrite != 0)
+		return std::chrono::milliseconds(0);
+
+	auto startTime = getMilliseconds();
+
+	std::ofstream file("test_frame_" + std::to_string(frame) + ".dat", std::ios::binary);
+
+	file.write(reinterpret_cast<char*>(&instance->nParticles), sizeof(int));
+
+	Particle* particles = instance->getParticles();
+	for (int i = 0; i < instance->nParticles; i++)
+		file.write(reinterpret_cast<char*>(&particles[i].position), sizeof(float2));
+	
+	file.close();
+
+	return getMilliseconds() - startTime;
+}
+
 void Core::run() {
 	verifyConfiguration();
 
 	spdlog::info("Initialzing cuda");
-
-	initialize(instance);
+	initializeCuda(instance);
 
 	spdlog::info("Running simulation");
+	frameTime = getMilliseconds();
 
-	simulate(instance);
+	while (alive) {
+		simulate(instance);
+
+		auto writeTime = writeToDisk();
+		spdlog::info("Frame {} completed in {}ms ({}ms writing)", frame, (getMilliseconds() - frameTime).count(), (getMilliseconds() - frameTime - writeTime).count());
+
+		frameTime = getMilliseconds();
+		frame++;
+	}
 
 	spdlog::info("Shutting down");
-
-	unInitialize();
-
-    // while (true) {
-    //     // Call cuda to think here
-	// 	// Launch a kernel on the GPU with one thread for each element.
-	// 	cudaDeviceSynchronize();
-    // }
-
-
-	// cudaFree(particles);
-	// cudaFree(massiveParticles);
-	// cudaDeviceReset();
+	unInitializeCuda();
 }
 
 void Core::kill() {

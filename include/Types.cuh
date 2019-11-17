@@ -2,6 +2,25 @@
 
 #include "cuda_runtime.h"
 
+#include <map>
+#include <string>
+
+struct Kernel
+{
+	enum
+	{
+		unknown = 0,
+		gravity,
+		experimental
+	};
+
+	// static int fromString(std::string kernel);
+	// static std::string toString(int kernel);
+
+	static std::map<std::string, int> fromString;
+	static std::map<int, std::string> toString;
+};
+
 __host__ __device__ int2 operator+(const int2& a, const int2& b);
 __host__ __device__ int2 operator-(const int2& a, const int2& b);
 __host__ __device__ int2 operator*(const int2& a, const int2& b);

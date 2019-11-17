@@ -7,6 +7,8 @@
 
 #include "Types.cuh"
 
+const static constexpr int nThreads = 512;
+
 struct Particle
 {
 	float2 position;
@@ -47,8 +49,8 @@ __global__
 void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out);
 void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* data_in, float* data_out);
 
-__host__ void initialize(Instance* instance);
-__host__ void unInitialize();
+__host__ void initializeCuda(Instance* instance);
+__host__ void unInitializeCuda();
 
 __host__ void simulate(Instance* instance);
 __global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance);
