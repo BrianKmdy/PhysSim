@@ -181,13 +181,15 @@ Instance* loadConfig()
 
 	// Create the instance for this simulation
 	Instance* instance = reinterpret_cast<Instance*>(new char[Instance::size(nParticles, nBoxes)]);
+	memset(instance, 0, Instance::size(nParticles, nBoxes));
+
 	instance->dimensions = dimensions;
 	instance->divisions = divisions;
 	instance->nParticles = nParticles;
 	instance->nBoxes = nBoxes;
 	instance->boxSize = boxSize;
 
-	instance->initialize();
+	initializeInstance(instance);
 
 	// Initialize a random number generator for the particles
 	std::random_device rd;
@@ -213,6 +215,7 @@ void dumpState(Instance* instance, std::string name)
 		data["boxes"][i]["mass"] = instance->boxes[i].mass;
 		data["boxes"][i]["mass x"] = instance->boxes[i].centerMass.x;
 		data["boxes"][i]["mass y"] = instance->boxes[i].centerMass.y;
+		data["boxes"][i]["nParticles"] = instance->boxes[i].nParticles;
 
 		for (int o = 0; o < instance->boxes[i].nParticles; o++) {
 			data["boxes"][i][o]["mass"] = instance->boxes[i].particles[o].mass;
@@ -250,11 +253,6 @@ int main()
 		dumpState(gCore.getInstance(), "before");
 		gCore.run();
 		dumpState(gCore.getInstance(), "after");
-		Instance* instance = gCore.getInstance();
-		Instance* instanceCopy = reinterpret_cast<Instance*>(new char[instance->size()]);
-		instance->copyFull(instanceCopy);
-		dumpState(instanceCopy, "afterCopy");
-		delete[] reinterpret_cast<char*>(instanceCopy);
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error running simulation: {}", e.what());

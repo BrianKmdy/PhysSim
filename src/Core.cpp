@@ -77,11 +77,17 @@ void Core::verifyConfiguration()
 void Core::run() {
 	verifyConfiguration();
 
+	spdlog::info("Initialzing cuda");
+
+	initialize(instance);
+
 	spdlog::info("Running simulation");
 
 	simulate(instance);
 
 	spdlog::info("Shutting down");
+
+	unInitialize();
 
     // while (true) {
     //     // Call cuda to think here

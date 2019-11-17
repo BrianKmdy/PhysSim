@@ -2,7 +2,7 @@
 
 const static constexpr int nThreads = 512;
 
-std::vector<Instance*> gDeviceMemory;
+std::vector<Instance*> gDeviceInstances;
 
 __global__
 void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out)
@@ -35,8 +35,8 @@ __host__ void initialize(Instance* instance)
 	for (int i = 0; i < nDevices; i++) {
 		cudaSetDevice(i);
 
-		gDeviceMemory.push_back(nullptr);
-		cudaMalloc(&gDeviceMemory[i], instance->size());
+		gDeviceInstances.push_back(nullptr);
+		cudaMalloc(&gDeviceInstances[i], instance->size());
 	}
 }
 
@@ -46,7 +46,7 @@ __host__ void unInitialize()
 	cudaGetDeviceCount(&nDevices);
 
 	for (int i = 0; i < nDevices; i++) {
-		cudaFree(gDeviceMemory[i]);
+		cudaFree(gDeviceInstances[i]);
 		cudaDeviceReset();
 	}
 }
@@ -62,6 +62,7 @@ __host__ void simulate(Instance* instance)
 		boxParticles.push_back(std::vector<Particle>());
 	}
 
+	// Assign each particle to a box and add its mass to the box
 	for (int i = 0; i < instance->nParticles; i++) {
 		int boxId = instance->getBoxIndex(instance->particles[i].position);
 
@@ -72,8 +73,8 @@ __host__ void simulate(Instance* instance)
 		boxParticles[boxId].push_back(instance->particles[i]);
 	}
 
-	// XXX/bmoody For testing
-	Particle* particlePointer = instance->boxParticles;
+	// Copy the particles from the temporary boxes over to the instance
+	Particle* particlePointer = reinterpret_cast<Particle*>(instance->boxes + instance->nBoxes);
 	for (int i = 0; i < instance->nBoxes; i++) {
 		instance->boxes[i].nParticles = boxParticles[i].size();
 
@@ -87,11 +88,41 @@ __host__ void simulate(Instance* instance)
 		}
 	}
 
+	int nDevices;
+	cudaGetDeviceCount(&nDevices);
+
+	// Copy the instance to device memory and run the kernel
+	for (int i = 0; i < nDevices; i++) {
+		cudaSetDevice(i);
+
+		cudaMemcpy(gDeviceInstances[i], instance, instance->size(), cudaMemcpyHostToDevice);
+		initializeInstance(gDeviceInstances[i]);
+
+		kernel<<<(instance->nParticles + nThreads - 1) / nThreads, nThreads>>> (i, 0, 0, gDeviceInstances[i]);
+	}
+
+	// Synchronize with devices and copy the udpated instance back
+	for (int i = 0; i < nDevices; i++) {
+		cudaSetDevice(i);
+
+		cudaDeviceSynchronize();
+
+		cudaMemcpy(instance, gDeviceInstances[i], instance->size(), cudaMemcpyDeviceToHost);
+		initializeInstance(instance);
+	}
 }
 
-__global__ void kernel(Instance* instance)
+__global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance)
 {
+	// unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
+	// unsigned int stride = blockDim.x * gridDim.x;
 
+	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int stride = blockDim.x * gridDim.x;
+
+	for (unsigned int i = index; i < instance->nParticles; i += stride) {
+		instance->particles[i].mass = i;
+	}
 }
 
 __host__ __device__ int Instance::getBoxIndex(float2 position)
@@ -111,33 +142,21 @@ __host__ unsigned int Instance::size(int nParticles, int nBoxes)
 	return sizeof(Instance) + (2 * sizeof(Particle) * nParticles) + (sizeof(Box) * nBoxes);
 }
 
-__host__ void Instance::initialize()
+__host__ void initializeInstance(Instance* instance)
 {
-	char* pointer = reinterpret_cast<char*>(this);
+	char* pointer = reinterpret_cast<char*>(instance);
 	pointer += sizeof(Instance);
 
-	particles = reinterpret_cast<Particle*>(pointer);
-	pointer += nParticles * sizeof(Particle);
+	instance->particles = reinterpret_cast<Particle*>(pointer);
+	pointer += instance->nParticles * sizeof(Particle);
 
-	boxes = reinterpret_cast<Box*>(pointer);
-	pointer += nBoxes * sizeof(Box);
+	instance->boxes = reinterpret_cast<Box*>(pointer);
+	pointer += instance->nBoxes * sizeof(Box);
 
-	boxParticles = reinterpret_cast<Particle*>(pointer);
-}
-
-__host__ void Instance::copyFull(Instance* instance)
-{
-	memcpy(instance, this, size());
-
-	// Initialize the particles and boxes pointers
-	instance->initialize();
-
-	// Copy over the list of particles for each box
-	Particle* particlePointer = instance->boxParticles;
-	for (int i = 0; i < nBoxes; i++) {
-		if (boxes[i].nParticles > 0) {
-			instance->boxes[i].particles = particlePointer;
-			particlePointer += boxes[i].nParticles;
+	for (int i = 0; i < instance->nBoxes; i++) {
+		if (instance->boxes[i].nParticles > 0) {
+			instance->boxes[i].particles = reinterpret_cast<Particle*>(pointer);
+			pointer += instance->boxes[i].nParticles * sizeof(Particle);
 		}
 		else {
 			instance->boxes[i].particles = nullptr;

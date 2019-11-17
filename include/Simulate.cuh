@@ -36,16 +36,10 @@ struct Instance
 	int nBoxes;
 	Box* boxes;
 
-	// Pointer to the memory where the box particles are stored, shouldn't be access directly
-	Particle* boxParticles;
-
 	__host__ __device__ int getBoxIndex(float2 position);
 
 	__host__ unsigned int size();
 	__host__ static unsigned int size(int nParticles, int nBoxes);
-
-	__host__ void initialize();
-	__host__ void copyFull(Instance* instance);
 };
 
 __global__
@@ -55,5 +49,7 @@ void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* dat
 __host__ void initialize(Instance* instance);
 __host__ void unInitialize();
 
+__host__ void initializeInstance(Instance* instance);
+
 __host__ void simulate(Instance* instance);
-__global__ void kernel(Instance* instance);
+__global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance);
