@@ -148,6 +148,8 @@ void Core::run() {
 
 		frameTime = getMilliseconds();
 		frame++;
+
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
 	spdlog::info("Shutting down");
