@@ -33,17 +33,21 @@ class Core
 {
 public:
 	Core();
-    Core(Instance* instance);
+    Core(Instance* instance, Particle* particles, Box* boxes);
 	~Core();
 
 	Instance* getInstance();
+	Particle* getParticles();
+	Box* getBoxes();
 	void setInstance(Instance* instance);
+	void setParticles(Particle* particles);
+	void setBoxes(Box* boxes);
+
 	void setFramesPerWrite(int framesPerWrite);
 	void setKernel(std::string kernelName);
 
 	void verifyConfiguration();
 
-	std::chrono::milliseconds getMilliseconds();
 	std::chrono::milliseconds writeToDisk();
 
 	void run();
@@ -52,6 +56,8 @@ private:
 	volatile bool alive;
 
 	Instance* instance;
+	Particle* particles;
+	Box* boxes;
 
 	int framesPerWrite;
 	int kernel;

@@ -4,6 +4,7 @@
 #include "device_launch_parameters.h"
 
 #include <vector>
+#include <chrono>
 
 #include "Types.cuh"
 
@@ -13,8 +14,11 @@ struct Particle
 {
 	float2 position;
 	float2 velocity;
+	float2 force;
 
 	float mass;
+
+	int boxId;
 
 	__host__ __device__ float2 direction(Particle* particle);
 	__host__ __device__ float dist(Particle* particle);
@@ -47,21 +51,15 @@ struct Instance
 
 	__host__ unsigned int size();
 	__host__ static unsigned int size(int nParticles, int nBoxes);
-
-	__host__ __device__ Particle* getParticles();
-	__host__ __device__ Box* getBoxes();
-	__host__ __device__ Particle* getBoxParticles(int particleOffset = 0);
 };
-
-__global__
-void bigloop(unsigned int n, unsigned int deviceBatchSize, int deviceId, unsigned int endIndex, float* data_in, float* data_out);
-void test(unsigned int n, unsigned int deviceBatchSize, int deviceId, float* data_in, float* data_out);
 
 __host__ void initializeCuda(Instance* instance);
 __host__ void unInitializeCuda();
 
-__host__ void simulate(Instance* instance);
-__global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance);
+__host__ std::chrono::milliseconds simulate(Instance* instance, Particle *particles, Box* boxes);
+__global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance instance, Particle* particles, Box* boxes);
+
+std::chrono::milliseconds getMilliseconds();
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)

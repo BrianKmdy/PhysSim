@@ -6,13 +6,15 @@
 #include "Core.h"
 
 Core::Core():
-	Core(nullptr)
+	Core(nullptr, nullptr, nullptr)
 {
 }
 
-Core::Core(Instance* instance):
+Core::Core(Instance* instance, Particle* particles, Box* boxes):
 	alive(true),
 	instance(instance),
+	particles(particles),
+	boxes(boxes),
 	frame(0),
 	framesPerWrite(1),
 	kernel(Kernel::unknown),
@@ -23,8 +25,12 @@ Core::Core(Instance* instance):
 
 Core::~Core()
 {
-	if (instance)
-		delete[] reinterpret_cast<char*>(instance);
+	if (this->instance)
+		delete[] instance;
+	if (this->particles)
+		delete[] particles;
+	if (this->boxes)
+		delete[] boxes;
 }
 
 Instance* Core::getInstance()
@@ -32,12 +38,38 @@ Instance* Core::getInstance()
 	return instance;
 }
 
+Particle* Core::getParticles()
+{
+	return particles;
+}
+
+Box* Core::getBoxes()
+{
+	return boxes;
+}
+
 void Core::setInstance(Instance* instance)
 {
 	if (this->instance)
-		delete[] reinterpret_cast<char*>(this->instance);
+		delete[] this->instance;
 
 	this->instance = instance;
+}
+
+void Core::setParticles(Particle* particles)
+{
+	if (this->particles)
+		delete[] this->particles;
+
+	this->particles = particles;
+}
+
+void Core::setBoxes(Box* boxes)
+{
+	if (this->boxes)
+		delete[] this->boxes;
+
+	this->boxes = boxes;
 }
 
 void Core::setKernel(std::string kernelName)
@@ -104,11 +136,6 @@ void Core::verifyConfiguration()
 		throw std::exception("Invalid configuration");
 }
 
-std::chrono::milliseconds Core::getMilliseconds()
-{
-	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
-}
-
 std::chrono::milliseconds Core::writeToDisk()
 {
 	// If it's not time to write then just return 0ms
@@ -121,7 +148,6 @@ std::chrono::milliseconds Core::writeToDisk()
 
 	file.write(reinterpret_cast<char*>(&instance->nParticles), sizeof(int));
 
-	Particle* particles = instance->getParticles();
 	for (int i = 0; i < instance->nParticles; i++)
 		file.write(reinterpret_cast<char*>(&particles[i].position), sizeof(float2));
 	
@@ -140,16 +166,14 @@ void Core::run() {
 	frameTime = getMilliseconds();
 
 	while (alive) {
-		simulate(instance);
-		spdlog::info("x: {}, y: {}", instance->getParticles()[0].position.x, instance->getParticles()[0].position.y);
+		auto kernelTime = simulate(instance, particles, boxes);
+		// spdlog::info("x: {}, y: {}, forcex: {}, forcey: {}", particles[0].position.x, particles[0].position.y, particles[0].force.x, particles[0].force.y);
 
 		auto writeTime = writeToDisk();
-		spdlog::info("Frame {} completed in {}ms ({}ms writing)", frame, (getMilliseconds() - frameTime).count(), writeTime.count());
+		spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
 
 		frameTime = getMilliseconds();
 		frame++;
-
-		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
 	spdlog::info("Shutting down");
