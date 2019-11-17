@@ -15,6 +15,9 @@ struct Particle
 	float2 velocity;
 
 	float mass;
+
+	__host__ __device__ float2 direction(Particle* particle);
+	__host__ __device__ float dist(Particle* particle);
 };
 
 struct Box
@@ -34,6 +37,11 @@ struct Instance
 
 	int nParticles;
 	int nBoxes;
+
+	float left;
+	float right;
+	float bottom;
+	float top;
 
 	__host__ __device__ int getBoxIndex(float2 position);
 

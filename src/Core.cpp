@@ -141,9 +141,10 @@ void Core::run() {
 
 	while (alive) {
 		simulate(instance);
+		spdlog::info("x: {}, y: {}", instance->getParticles()[0].position.x, instance->getParticles()[0].position.y);
 
 		auto writeTime = writeToDisk();
-		spdlog::info("Frame {} completed in {}ms ({}ms writing)", frame, (getMilliseconds() - frameTime).count(), (getMilliseconds() - frameTime - writeTime).count());
+		spdlog::info("Frame {} completed in {}ms ({}ms writing)", frame, (getMilliseconds() - frameTime).count(), writeTime.count());
 
 		frameTime = getMilliseconds();
 		frame++;

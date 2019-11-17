@@ -106,15 +106,45 @@ __host__ void simulate(Instance* instance)
 
 __global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance* instance)
 {
-	Particle* particles = instance->getParticles();
+	const float time = 1000.0;
+	const float minForceDistance = 1.0;
+
 	// unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
 	// unsigned int stride = blockDim.x * gridDim.x;
 
 	unsigned int index = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int stride = blockDim.x * gridDim.x;
 
-	for (unsigned int i = index; i < instance->nParticles; i += stride) {
-		particles[i].mass = i;
+	Particle* particles = instance->getParticles();
+	Particle* boxParticles = instance->getBoxParticles();
+
+	for (int i = index; i < instance->nParticles; i += stride) {
+		float2 force = make_float2(0.0, 0.0);
+		for (int o = 0; o < instance->nParticles; o++) {
+			// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
+			float dist = particles[i].dist(&boxParticles[o]);
+	
+			if (dist > minForceDistance) {
+				force += (particles[i].direction(&boxParticles[o]) / dist) * ((particles[i].mass * boxParticles[o].mass) / powf(dist, 2.0));
+			}
+		}
+
+		// XXX/bmoody Can consider moving this outside of the kernel
+		// XXX/bmoody Can store force in the particle struct and avoid storing particles 2x (need to test which is faster)
+		float2 acceleration = force / particles[i].mass;
+
+		particles[i].position += (particles[i].velocity * time) + (0.5 * acceleration * powf(time, 2.0));
+		particles[i].velocity += acceleration * time;
+
+		// XXX/bmoody Review this, there must be a better way
+		if (particles[i].position.x < instance->left)
+			particles[i].position.x = instance->left;
+		if (particles[i].position.x > instance->right)
+			particles[i].position.x = instance->right - 1;
+		if (particles[i].position.y < instance->bottom)
+			particles[i].position.y = instance->bottom;
+		if (particles[i].position.y > instance->top)
+			particles[i].position.y = instance->top - 1;
 	}
 }
 
@@ -148,4 +178,16 @@ __host__ __device__ Box* Instance::getBoxes()
 __host__ __device__ Particle* Instance::getBoxParticles(int particleOffset)
 {
 	return reinterpret_cast<Particle*>(reinterpret_cast<char*>(this) + sizeof(Instance) + nParticles * sizeof(Particle) + nBoxes * sizeof(Box) + particleOffset * sizeof(Particle));
+}
+
+__host__ __device__ float2 Particle::direction(Particle* particle)
+{
+	return particle->position - position;
+}
+
+// XXX/bmoody Review the order
+//            Can probably make this more efficient by skippint the sqrt
+__host__ __device__ float Particle::dist(Particle* particle)
+{
+	return sqrtf(powf(position.x - particle->position.x, 2.0) + powf(position.y - particle->position.y, 2.0));
 }

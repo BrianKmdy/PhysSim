@@ -13,6 +13,10 @@
 #include "Types.cuh"
 
 #include "spdlog/spdlog.h"
+#include "spdlog/async.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/sinks/rotating_file_sink.h"
+
 #include "yaml-cpp/yaml.h"
 
 #include <thread>
@@ -123,10 +127,16 @@ void loadConfig()
 	instance->nBoxes = nBoxes;
 	instance->boxSize = boxSize;
 
+	float maxBound = dimensions / 2;
+	instance->left = -maxBound;
+	instance->right = maxBound;
+	instance->bottom = -maxBound;
+	instance->top = maxBound;
+
 	// Initialize a random number generator for the particles
 	std::random_device rd;
 	std::mt19937 mt(rd());
-	std::uniform_real_distribution<float> dist((dimensions / 2) * -1, dimensions / 2);
+	std::uniform_real_distribution<float> dist(-maxBound, maxBound);
 
 	// Create the particles
 	Particle* particles = instance->getParticles();
@@ -182,6 +192,15 @@ int main()
 {
 	// Create a signal handler in order to stop the simulation
 	signal(SIGINT, signalHandler);
+
+	// XXX/bmoody Review this
+	// Initiate the logger
+	spdlog::init_thread_pool(8192, 1);
+	auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt >();
+	auto rotating_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("simlog.txt", 1024 * 1024 * 10, 3);
+	std::vector<spdlog::sink_ptr> sinks{ stdout_sink, rotating_sink };
+	auto logger = std::make_shared<spdlog::async_logger>("PhysSim", sinks.begin(), sinks.end(), spdlog::thread_pool(), spdlog::async_overflow_policy::block);
+	spdlog::set_default_logger(logger);
 
 	try {
 		loadConfig();

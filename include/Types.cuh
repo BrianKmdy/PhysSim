@@ -36,6 +36,7 @@ __host__ __device__ int3 operator-(const int3& a, const int3& b);
 __host__ __device__ int3 operator*(const int3& a, const int3& b);
 __host__ __device__ int3 operator/(const int3& a, const int3& b);
 
+__host__ __device__ float2 operator+=(float2& a, const float2& b);
 __host__ __device__ float2 operator+(const float2& a, const float2& b);
 __host__ __device__ float2 operator-(const float2& a, const float2& b);
 __host__ __device__ float2 operator*(const float2& a, const float2& b);
@@ -44,6 +45,7 @@ __host__ __device__ float2 operator/(const float2& a, const float2& b);
 __host__ __device__ float2 operator+(const float2& a, const float& b);
 __host__ __device__ float2 operator-(const float2& a, const float& b);
 __host__ __device__ float2 operator*(const float2& a, const float& b);
+__host__ __device__ float2 operator*(const float& a, const float2& b);
 __host__ __device__ float2 operator/(const float2& a, const float& b);
 
 __host__ __device__ int2 operator+(const float2& a, const int& b);
