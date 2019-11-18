@@ -57,10 +57,16 @@ void loadConfig()
 	if (config["framesPerWrite"].IsDefined())
 		gCore.setFramesPerWrite(config["framesPerWrite"].as<int>());
 
+	int spreadRadius;
+	if (config["spreadRadius"].IsDefined())
+		spreadRadius = config["framesPerWrite"].as<float>();
+	else
+		spreadRadius = maxBoundary;
+
 	// Initialize a random number generator for the particles
 	std::random_device rd;
 	std::mt19937 mt(rd());
-	std::uniform_real_distribution<float> dist(-maxBoundary, maxBoundary);
+	std::uniform_real_distribution<float> dist(-spreadRadius, spreadRadius);
 
 	// Create the particles
 	std::vector<Particle> tempParticles;
@@ -114,6 +120,7 @@ void dumpState(std::string name)
 		data["boxes"][i]["mass x"] = boxes[i].centerMass.x;
 		data["boxes"][i]["mass y"] = boxes[i].centerMass.y;
 		data["boxes"][i]["nParticles"] = boxes[i].nParticles;
+		data["boxes"][i]["particleOffset"] = boxes[i].particleOffset;
 	}
 
 	data["nParticles"] = instance->nParticles;
@@ -121,6 +128,7 @@ void dumpState(std::string name)
 		data["particles"][i]["mass"] = particles[i].mass;
 		data["particles"][i]["x"] = particles[i].position.x;
 		data["particles"][i]["y"] = particles[i].position.y;
+		data["particles"][i]["boxId"] = particles[i].boxId;
 	}
 
 	std::ofstream fout(name + ".yaml");

@@ -32,6 +32,8 @@ struct Box
 
 	int nParticles;
 	int particleOffset;
+
+	__host__ __device__ float2 direction(float2 otherPosition);
 };
 
 struct Instance
@@ -50,11 +52,13 @@ struct Instance
 	__host__ static unsigned int size(int nParticles, int nBoxes);
 };
 
+// XXX/bmoody Can move all of this into a class
 __host__ void initializeCuda(Instance* instance);
 __host__ void unInitializeCuda();
 
-__host__ std::chrono::milliseconds simulate(Instance* instance, Particle *particles, Box* boxes);
-__global__ void kernel(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes);
+__host__ std::chrono::milliseconds simulate(Instance* instance, Particle *particles, Box* boxes, int kernel);
+__global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes);
+__global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes);
 
 std::chrono::milliseconds getMilliseconds();
 

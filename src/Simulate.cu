@@ -34,7 +34,7 @@ __host__ void unInitializeCuda()
 	}
 }
 
-__host__ std::chrono::milliseconds simulate(Instance* instance, Particle* particles, Box* boxes)
+__host__ std::chrono::milliseconds simulate(Instance* instance, Particle* particles, Box* boxes, int kernel)
 {
 	for (int i = 0; i < instance->nBoxes; i++) {
 		boxes[i].mass = 0.0;
@@ -79,7 +79,17 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 		int endIndex = static_cast<int>(std::min((i + 1) * deviceBatchSize, instance->nParticles));
 		gpuErrchk(cudaMemcpy(gDeviceParticles[i], particles, instance->nParticles * sizeof(Particle), cudaMemcpyHostToDevice));
 		gpuErrchk(cudaMemcpy(gDeviceBoxes[i], boxes, instance->nBoxes * sizeof(Box), cudaMemcpyHostToDevice));
-		kernel<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+
+		// Launch the kernel
+		switch (kernel) {
+			case Kernel::experimental:
+				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+				break;
+			default:
+				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+				break;
+		}
+
 		gpuErrchk(cudaPeekAtLastError());
 	}
 
@@ -108,7 +118,7 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 	return kernelEndTime - kernelStartTime;
 }
 
-__global__ void kernel(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
+__global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
 {
 	// XXX/bmoody Define minForceDistance somewhere else
 	const float minForceDistance = 1.0;
@@ -136,6 +146,34 @@ __global__ void kernel(int deviceId, int deviceBatchSize, int endIndex, Instance
 	}
 }
 
+__global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
+{
+	// XXX/bmoody Define minForceDistance somewhere else
+	const float minForceDistance = 1.0;
+
+	unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int stride = blockDim.x * gridDim.x;
+
+	for (int i = index; i < endIndex; i += stride) {
+		for (int o = 0; o < instance.nBoxes; o++) {
+			if (o == particles[i].boxId) {
+				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
+					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
+					float dist = particles[i].dist(particles[p].position);
+					if (dist > minForceDistance)
+						particles[i].force += (particles[p].direction(particles[i].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
+				}
+			}
+			else
+			{
+				float dist = particles[i].dist(boxes[o].centerMass);
+				if (dist > minForceDistance)
+					particles[i].force += (boxes[o].direction(particles[i].position) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
+			}
+		}
+	}
+}
+
 __host__ __device__ int Instance::getBoxIndex(float2 position)
 {
 	int2 index = (position + (dimensions / 2)) / boxSize;
@@ -156,6 +194,11 @@ __host__ unsigned int Instance::size(int nParticles, int nBoxes)
 __host__ __device__ float2 Particle::direction(float2 otherPosition)
 {
 	return otherPosition - position;
+}
+
+__host__ __device__ float2 Box::direction(float2 otherPosition)
+{
+	return otherPosition - centerMass;
 }
 
 // XXX/bmoody Review the order

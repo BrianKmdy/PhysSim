@@ -167,7 +167,7 @@ void Core::run() {
 
 	while (alive) {
 		// Run the kernel
-		auto kernelTime = simulate(instance, particles, boxes);
+		auto kernelTime = simulate(instance, particles, boxes, kernel);
 
 		// Write the results to disk
 		auto writeTime = writeToDisk();
