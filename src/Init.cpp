@@ -77,8 +77,13 @@ void loadConfig()
 			auto node = it->second;
 			Particle particle;
 			particle.position = make_float2(node["x"].as<float>(), node["y"].as<float>());
-			particle.velocity = make_float2(0.0f, 0.0f);
 			particle.mass = node["mass"].as<float>();
+
+			if (node["vx"].IsDefined() && node["vy"].IsDefined())
+				particle.velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+			else
+				particle.velocity = make_float2(0.0f, 0.0f);
+
 			tempParticles.push_back(particle);
 		}
 	}
