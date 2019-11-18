@@ -9,7 +9,7 @@ import numpy
 file_regex = re.compile('test_frame_([0-9]+)\.dat')
 wDimensions = 1200
 
-class Simulation:
+class Processor:
     def __init__(self, root, config):
         self.frame = 0
         self.particles = []
@@ -28,7 +28,7 @@ class Simulation:
 
         self.files.sort(key=lambda x: int(file_regex.match(x).group(1)))
 
-    def load_frame(self):
+    def draw_frame(self):
         if self.frame < len(self.files):
             data = numpy.zeros((wDimensions, wDimensions, 3), dtype=numpy.uint8)
             
@@ -48,21 +48,18 @@ class Simulation:
 
         return False
 
-    def draw_particles(self):
-        for p in self.particles:
-            self.canvas.create_oval(p['x'] - self.radius, p['y'] - self.radius, p['x'] + self.radius, p['y'] + self.radius, fill="black")
-
     def update(self):
         self.canvas.delete('all')
         self.particles.clear()
 
-        if self.load_frame():
-            print('Frame: %d' % int(file_regex.match(self.files[self.frame]).group(1)))
-
-            self.draw_particles()
+        if self.draw_frame():
 
             self.frame += 1
-            self.canvas.after(100, self.update)
+            self.canvas.after(5, self.update)
+
+class Replayer:
+    def __init__(self):
+        pass
 
 # Load the config
 with open('config.yaml', 'r') as f:
@@ -74,7 +71,7 @@ root.title("PhysSim")
 root.resizable(False,False)
 
 # create two ball objects and animate them
-simulation = Simulation(root, config)
+simulation = Processor(root, config)
 simulation.update()
 
 root.mainloop()
