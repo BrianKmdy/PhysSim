@@ -166,12 +166,13 @@ void Core::run() {
 	frameTime = getMilliseconds();
 
 	while (alive) {
+		// Run the kernel
 		auto kernelTime = simulate(instance, particles, boxes);
-		// spdlog::info("x: {}, y: {}, forcex: {}, forcey: {}", particles[0].position.x, particles[0].position.y, particles[0].force.x, particles[0].force.y);
 
+		// Write the results to disk
 		auto writeTime = writeToDisk();
-		spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
 
+		spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
 		frameTime = getMilliseconds();
 		frame++;
 	}

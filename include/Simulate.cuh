@@ -20,8 +20,9 @@ struct Particle
 
 	int boxId;
 
-	__host__ __device__ float2 direction(Particle* particle);
-	__host__ __device__ float dist(Particle* particle);
+	__host__ __device__ float2 direction(float2 otherPosition);
+	__host__ __device__ float dist(float2 otherPosition);
+	__host__ __device__ void enforceBoundary(float maxBoundary);
 };
 
 struct Box
@@ -38,14 +39,10 @@ struct Instance
 	int dimensions;
 	int divisions;
 	int boxSize;
+	float maxBoundary;
 
 	int nParticles;
 	int nBoxes;
-
-	float left;
-	float right;
-	float bottom;
-	float top;
 
 	__host__ __device__ int getBoxIndex(float2 position);
 
@@ -57,7 +54,7 @@ __host__ void initializeCuda(Instance* instance);
 __host__ void unInitializeCuda();
 
 __host__ std::chrono::milliseconds simulate(Instance* instance, Particle *particles, Box* boxes);
-__global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance instance, Particle* particles, Box* boxes);
+__global__ void kernel(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes);
 
 std::chrono::milliseconds getMilliseconds();
 

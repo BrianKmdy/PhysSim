@@ -36,39 +36,19 @@ void loadConfig()
 	// Load the environment setup from the config
 	int dimensions = config["dimensions"].as<int>();
 	int divisions = config["divisions"].as<int>();
-	int nParticles = config["nParticles"].as<int>();
 	int nBoxes = divisions * divisions;
 	int boxSize = dimensions / divisions;
 
 	// Create the instance for this simulation
 	Instance* instance = new Instance;
-	Particle* particles = new Particle[nParticles];
-	Box* boxes = new Box[nBoxes];
-	memset(boxes, 0, nBoxes * sizeof(Box));
 
 	instance->dimensions = dimensions;
 	instance->divisions = divisions;
-	instance->nParticles = nParticles;
 	instance->nBoxes = nBoxes;
 	instance->boxSize = boxSize;
 
-	float maxBound = dimensions / 2;
-	instance->left = -maxBound;
-	instance->right = maxBound;
-	instance->bottom = -maxBound;
-	instance->top = maxBound;
-
-	// Initialize a random number generator for the particles
-	std::random_device rd;
-	std::mt19937 mt(rd());
-	std::uniform_real_distribution<float> dist(-maxBound, maxBound);
-
-	// Create the particles
-	for (int i = 0; i < instance->nParticles; i++) {
-		particles[i].position = make_float2(dist(mt), dist(mt));
-		particles[i].velocity = make_float2(0.0f, 0.0f);
-		particles[i].mass = 1.0f;
-	}
+	float maxBoundary = dimensions / 2;
+	instance->maxBoundary = maxBoundary;
 
 	if (config["kernel"].IsDefined()) {
 		gCore.setKernel(config["kernel"].as<std::string>());
@@ -76,6 +56,39 @@ void loadConfig()
 
 	if (config["framesPerWrite"].IsDefined())
 		gCore.setFramesPerWrite(config["framesPerWrite"].as<int>());
+
+	// Initialize a random number generator for the particles
+	std::random_device rd;
+	std::mt19937 mt(rd());
+	std::uniform_real_distribution<float> dist(-maxBoundary, maxBoundary);
+
+	// Create the particles
+	std::vector<Particle> tempParticles;
+	for (int i = 0; i < config["nParticles"].as<int>(); i++) {
+		Particle particle;
+		particle.position = make_float2(dist(mt), dist(mt));
+		particle.velocity = make_float2(0.0f, 0.0f);
+		particle.mass = 1.0f;
+		tempParticles.push_back(particle);
+	}
+
+	for (auto it = config.begin(); it != config.end(); ++it) {
+		if (it->first.as<std::string>() == "particle") {
+			auto node = it->second;
+			Particle particle;
+			particle.position = make_float2(node["x"].as<float>(), node["y"].as<float>());
+			particle.velocity = make_float2(0.0f, 0.0f);
+			particle.mass = node["mass"].as<float>();
+			tempParticles.push_back(particle);
+		}
+	}
+
+	Particle* particles = new Particle[tempParticles.size()];
+	memcpy(particles, tempParticles.data(), tempParticles.size() * sizeof(Particle));
+	instance->nParticles = tempParticles.size();
+
+	Box* boxes = new Box[nBoxes];
+	memset(boxes, 0, nBoxes * sizeof(Box));
 
 	gCore.setInstance(instance);
 	gCore.setParticles(particles);

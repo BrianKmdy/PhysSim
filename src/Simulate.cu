@@ -40,6 +40,7 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 		boxes[i].mass = 0.0;
 		boxes[i].centerMass = make_float2(0.0, 0.0);
 		boxes[i].nParticles = 0;
+		boxes[i].particleOffset = 0;
 	}
 
 	for (int i = 0; i < instance->nParticles; i++) {
@@ -70,12 +71,15 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 
 	// Copy the instance to device memory and run the kernel
 	auto kernelStartTime = getMilliseconds();
+	int blockSize = (instance->nParticles + nThreads - 1) / nThreads;
+	int deviceBatchSize = (instance->nParticles + nDevices - 1) / nDevices;
 	for (int i = 0; i < nDevices; i++) {
 		cudaSetDevice(i);
 
+		int endIndex = static_cast<int>(std::min((i + 1) * deviceBatchSize, instance->nParticles));
 		gpuErrchk(cudaMemcpy(gDeviceParticles[i], particles, instance->nParticles * sizeof(Particle), cudaMemcpyHostToDevice));
 		gpuErrchk(cudaMemcpy(gDeviceBoxes[i], boxes, instance->nBoxes * sizeof(Box), cudaMemcpyHostToDevice));
-		kernel<<<(instance->nParticles + nThreads - 1) / nThreads, nThreads>>>(i, 0, 0, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+		kernel<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
 		gpuErrchk(cudaPeekAtLastError());
 	}
 
@@ -83,64 +87,51 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 	for (int i = 0; i < nDevices; i++) {
 		cudaSetDevice(i);
 
+		int numElements = std::min(deviceBatchSize, instance->nParticles - (i * deviceBatchSize));
 		gpuErrchk(cudaDeviceSynchronize());
-		gpuErrchk(cudaMemcpy(particles, gDeviceParticles[i], instance->nParticles * sizeof(Particle), cudaMemcpyDeviceToHost));
-		gpuErrchk(cudaMemcpy(boxes, gDeviceBoxes[i], instance->nBoxes * sizeof(Box), cudaMemcpyDeviceToHost));
+		gpuErrchk(cudaMemcpy(particles + (i * deviceBatchSize), gDeviceParticles[i] + (i* deviceBatchSize), numElements * sizeof(Particle), cudaMemcpyDeviceToHost));
 	}
 	auto kernelEndTime = getMilliseconds();
 
 	// XXX/bmoody Can consider moving this outside of the kernel
 	// XXX/bmoody Can store force in the particle struct and avoid storing particles 2x (need to test which is faster)
+	// XXX/bmoody Define time somewhere else
 	const float time = 1.0;
 	for (int i = 0; i < instance->nParticles; i++) {
 		float2 acceleration = particles[i].force / particles[i].mass;
 
 		particles[i].position += (particles[i].velocity * time) + (0.5 * acceleration * powf(time, 2.0));
 		particles[i].velocity += acceleration * time;
-
-		//// XXX/bmoody Review this, there must be a better way
-		if (particles[i].position.x < instance->left) {
-			particles[i].position.x = instance->left;
-			particles[i].velocity.x = 0.0;
-		}
-		if (particles[i].position.x > instance->right) {
-			particles[i].position.x = instance->right - 1;
-			particles[i].velocity.x = 0.0;
-		}
-		if (particles[i].position.y < instance->bottom) {
-			particles[i].position.y = instance->bottom;
-			particles[i].velocity.y = 0.0;
-		}
-		if (particles[i].position.y > instance->top) {
-			particles[i].position.y = instance->top - 1;
-			particles[i].velocity.y = 0.0;
-		}
+		particles[i].enforceBoundary(instance->maxBoundary);
 	}
 
 	return kernelEndTime - kernelStartTime;
 }
 
-__global__ void kernel(int deviceId, unsigned int deviceBatchSize, unsigned int endIndex, Instance instance, Particle* particles, Box* boxes)
+__global__ void kernel(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
 {
+	// XXX/bmoody Define minForceDistance somewhere else
 	const float minForceDistance = 1.0;
 
-	// unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
-	// unsigned int stride = blockDim.x * gridDim.x;
+	unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int stride = blockDim.x * gridDim.x;
 
-	int index = blockIdx.x * blockDim.x + threadIdx.x;
-	int stride = blockDim.x * gridDim.x;
-
-	// Particle* particles = instance->getParticles();
-	// Particle* boxParticles = instance->getBoxParticles();
-
-	for (int i = index; i < instance.nParticles; i += stride) {
-	 	for (int o = 0; o < instance.nParticles; o++) {
-	 		// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
-	 		float dist = particles[i].dist(&particles[o]);
-	 	
-	 		if (dist > minForceDistance) {
-	 			particles[i].force += (particles[i].direction(&particles[o]) / dist) * ((particles[i].mass * particles[o].mass) / powf(dist, 2.0));
-	 		}
+	for (int i = index; i < endIndex; i += stride) {
+	 	for (int o = 0; o < instance.nBoxes; o++) {
+			if (o == particles[i].boxId) {
+				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
+					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
+					float dist = particles[i].dist(particles[p].position);
+					if (dist > minForceDistance)
+						particles[i].force += (particles[i].direction(particles[p].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
+				}
+			}
+			else
+			{
+				float dist = particles[i].dist(boxes[o].centerMass);
+				if (dist > minForceDistance)
+					particles[i].force += (particles[i].direction(boxes[o].centerMass) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
+			}
 	 	}
 	}
 }
@@ -162,16 +153,37 @@ __host__ unsigned int Instance::size(int nParticles, int nBoxes)
 	return sizeof(Instance) + (2 * sizeof(Particle) * nParticles) + (sizeof(Box) * nBoxes);
 }
 
-__host__ __device__ float2 Particle::direction(Particle* particle)
+__host__ __device__ float2 Particle::direction(float2 otherPosition)
 {
-	return particle->position - position;
+	return otherPosition - position;
 }
 
 // XXX/bmoody Review the order
 //            Can probably make this more efficient by skippint the sqrt
-__host__ __device__ float Particle::dist(Particle* particle)
+__host__ __device__ float Particle::dist(float2 otherPosition)
 {
-	return sqrtf(powf(position.x - particle->position.x, 2.0) + powf(position.y - particle->position.y, 2.0));
+	return sqrtf(powf(otherPosition.x - position.x, 2.0) + powf(otherPosition.y - position.y, 2.0));
+}
+
+__host__ __device__ void Particle::enforceBoundary(float maxBoundary)
+{
+	//// XXX/bmoody Review this, there must be a better way
+	if (position.x < -maxBoundary) {
+		position.x = -maxBoundary;
+		velocity.x = 0.0;
+	}
+	if (position.x > maxBoundary) {
+		position.x = maxBoundary - 1;
+		velocity.x = 0.0;
+	}
+	if (position.y < -maxBoundary) {
+		position.y = -maxBoundary;
+		velocity.y = 0.0;
+	}
+	if (position.y > maxBoundary) {
+		position.y = maxBoundary - 1;
+		velocity.y = 0.0;
+	}
 }
 
 std::chrono::milliseconds getMilliseconds()
