@@ -6,7 +6,9 @@
 #include <random>
 #include <fstream>
 #include <csignal>
+#include <thread>
 
+#include "Paths.h"
 #include "Core.h"
 
 #include "Simulate.cuh"
@@ -19,91 +21,13 @@
 
 #include "yaml-cpp/yaml.h"
 
-#include <thread>
+const static int version = 1;
 
 Core gCore;
+YAML::Node gConfig;
 
 void signalHandler(int signum) {
-	spdlog::info("Terminate signal received by user");
 	gCore.kill();
-}
-
-void loadConfig()
-{
-	spdlog::info("Loading config");
-	YAML::Node config = YAML::LoadFile("config.yaml");
-
-	// Load the environment setup from the config
-	int dimensions = config["dimensions"].as<int>();
-	int divisions = config["divisions"].as<int>();
-	int nBoxes = divisions * divisions;
-	int boxSize = dimensions / divisions;
-
-	// Create the instance for this simulation
-	Instance* instance = new Instance;
-
-	instance->dimensions = dimensions;
-	instance->divisions = divisions;
-	instance->nBoxes = nBoxes;
-	instance->boxSize = boxSize;
-
-	float maxBoundary = dimensions / 2;
-	instance->maxBoundary = maxBoundary;
-
-	if (config["kernel"].IsDefined()) {
-		gCore.setKernel(config["kernel"].as<std::string>());
-	}
-
-	if (config["framesPerWrite"].IsDefined())
-		gCore.setFramesPerWrite(config["framesPerWrite"].as<int>());
-
-	int spreadRadius;
-	if (config["spreadRadius"].IsDefined())
-		spreadRadius = config["framesPerWrite"].as<float>();
-	else
-		spreadRadius = maxBoundary;
-
-	// Initialize a random number generator for the particles
-	std::random_device rd;
-	std::mt19937 mt(rd());
-	std::uniform_real_distribution<float> dist(-spreadRadius, spreadRadius);
-
-	// Create the particles
-	std::vector<Particle> tempParticles;
-	for (int i = 0; i < config["nParticles"].as<int>(); i++) {
-		Particle particle;
-		particle.position = make_float2(dist(mt), dist(mt));
-		particle.velocity = make_float2(0.0f, 0.0f);
-		particle.mass = 1.0f;
-		tempParticles.push_back(particle);
-	}
-
-	for (auto it = config.begin(); it != config.end(); ++it) {
-		if (it->first.as<std::string>() == "particle") {
-			auto node = it->second;
-			Particle particle;
-			particle.position = make_float2(node["x"].as<float>(), node["y"].as<float>());
-			particle.mass = node["mass"].as<float>();
-
-			if (node["vx"].IsDefined() && node["vy"].IsDefined())
-				particle.velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
-			else
-				particle.velocity = make_float2(0.0f, 0.0f);
-
-			tempParticles.push_back(particle);
-		}
-	}
-
-	Particle* particles = new Particle[tempParticles.size()];
-	memcpy(particles, tempParticles.data(), tempParticles.size() * sizeof(Particle));
-	instance->nParticles = tempParticles.size();
-
-	Box* boxes = new Box[nBoxes];
-	memset(boxes, 0, nBoxes * sizeof(Box));
-
-	gCore.setInstance(instance);
-	gCore.setParticles(particles);
-	gCore.setBoxes(boxes);
 }
 
 void dumpState(std::string name)
@@ -131,8 +55,127 @@ void dumpState(std::string name)
 		data["particles"][i]["boxId"] = particles[i].boxId;
 	}
 
-	std::ofstream fout(name + ".yaml");
+	std::ofstream fout(ConfigFilePath);
 	fout << data;
+}
+
+Instance* loadInstance()
+{
+	// Create the instance for this simulation
+	Instance* instance = new Instance;
+
+	instance->dimensions = gConfig["dimensions"].as<int>();
+	instance->divisions = gConfig["divisions"].as<int>();
+	instance->nBoxes = instance->divisions * instance->divisions;
+	instance->boxSize = instance->dimensions / instance->divisions;
+	instance->maxBoundary = instance->dimensions / 2;
+
+	return instance;
+}
+
+Particle* loadParticles(Instance* instance)
+{
+	// Initialize a random number generator for the particles
+	std::random_device rd;
+	std::mt19937 mt(rd());
+
+	// Count the particles
+	instance->nParticles = 0;
+	for (auto it = gConfig.begin(); it != gConfig.end(); ++it) {
+		auto node = it->second;
+
+		if (it->first.as<std::string>() == "particle") {
+			instance->nParticles++;
+		}
+		else if (it->first.as<std::string>() == "particles") {
+			instance->nParticles += node["n"].as<int>();
+		}
+	}
+
+	// Create the particles
+	Particle* particles = new Particle[instance->nParticles];
+	int index = 0;
+	for (auto it = gConfig.begin(); it != gConfig.end(); ++it) {
+		auto node = it->second;
+
+		if (it->first.as<std::string>() == "particle") {
+			particles[index].position = make_float2(node["x"].as<float>(), node["y"].as<float>());
+			particles[index].mass = node["mass"].as<float>();
+			particles[index].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+
+			index++;
+		}
+		else if (it->first.as<std::string>() == "particles") {
+			float length = node["length"].as<float>();
+			std::uniform_real_distribution<float> dist(-length, length);
+			for (int i = 0; i < node["n"].as<int>(); i++) {
+				particles[index].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
+				particles[index].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+				particles[index].mass = node["mass"].as<float>();
+
+				index++;
+			}
+		}
+	}
+
+	return particles;
+}
+
+Box* loadBoxes(Instance* instance)
+{
+	// Initialize the boxes
+	Box* boxes = new Box[instance->nBoxes];
+	memset(boxes, 0, instance->nBoxes * sizeof(Box));
+
+	return boxes;
+}
+
+void loadConfig()
+{
+	spdlog::info("Loading config");
+	gConfig = YAML::LoadFile("config.yaml");
+
+	if (gConfig["kernel"].IsDefined())
+		gCore.setKernel(gConfig["kernel"].as<std::string>());
+	if (gConfig["framesPerPosition"].IsDefined())
+		gCore.setFramesPerPosition(gConfig["framesPerPosition"].as<int>());
+	if (gConfig["framesPerFullState"].IsDefined())
+		gCore.setFramesPerState(gConfig["framesPerState"].as<int>());
+	if (gConfig["timeStep"].IsDefined())
+		gCore.setTimeStep(gConfig["timeStep"].as<float>());
+	if (gConfig["minForceDistance"].IsDefined())
+		gCore.setMinForceDistance(gConfig["minForceDistance"].as<float>());
+
+	Instance* instance = loadInstance();
+	Particle* particles = loadParticles(instance);
+	Box* boxes = loadBoxes(instance);
+
+	gCore.setInstance(instance);
+	gCore.setParticles(particles);
+	gCore.setBoxes(boxes);
+}
+
+void saveConfig()
+{
+	spdlog::info("Saving config");
+
+	gConfig["version"] = version;
+
+	std::ofstream fout(OutputConfigFilePath);
+	fout << gConfig;
+}
+
+void createDirectories()
+{
+	spdlog::info("Creating output directory");
+
+	if (std::filesystem::exists(OutputDirectory)) {
+		throw std::exception("Output directory already exists");
+	}
+
+	std::filesystem::create_directory(OutputDirectory);
+	std::filesystem::create_directory(PositionDataDirectory);
+	std::filesystem::create_directory(StateDataDirectory);
 }
 
 int main()
@@ -140,27 +183,32 @@ int main()
 	// Create a signal handler in order to stop the simulation
 	signal(SIGINT, signalHandler);
 
-	// XXX/bmoody Review this
-	// Initiate the logger
-	auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt >();
-	auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("simlog.txt");
-	std::vector<spdlog::sink_ptr> sinks{ stdout_sink, file_sink };
-	auto logger = std::make_shared<spdlog::logger>("PhysSim", sinks.begin(), sinks.end());
-	spdlog::set_default_logger(logger);
-
 	try {
+		// Create the output directory structure
+		createDirectories();
+
+		// Initiate the logger
+		auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt >();
+		auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(LogFilePath.string());
+		std::vector<spdlog::sink_ptr> sinks{ stdout_sink, file_sink };
+		auto logger = std::make_shared<spdlog::logger>("PhysSim", sinks.begin(), sinks.end());
+		spdlog::set_default_logger(logger);
+
+		// Load the config
 		loadConfig();
 	}
 	catch (std::exception& e) {
-		spdlog::error("Error loading config: {}", e.what());
+		spdlog::error("Error intializing simulation: {}", e.what());
 
 		return -1;
 	}
 
 	try {
-		dumpState("before");
+		// dumpState("before");
 		gCore.run();
-		dumpState("after");
+		// dumpState("after");
+
+		saveConfig();
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error running simulation: {}", e.what());

@@ -12,12 +12,12 @@ import io
 import aggdraw
 import threading
 
-data_regex = re.compile('test_frame_([0-9]+)\.dat')
-image_regex = re.compile('test_frame_([0-9]+)\.png')
+data_regex = re.compile('position-([0-9]+)\.dat')
+image_regex = re.compile('position-([0-9]+)\.png')
 
 wDimensions = 1200
 framesPerWrite = 1
-nThreads = 64
+nThreads = 8
 
 class Processor(threading.Thread):
     def __init__(self, config, files, threadId):
@@ -53,7 +53,7 @@ class Processor(threading.Thread):
                 d.ellipse((x - 1, y - 1, x + 1, y + 1), p)
             d.flush()
             
-            image.save('test_frame_%d.png' % self.simulationFrame)
+            image.save('position-%d.png' % self.simulationFrame)
             self.log_timer('time')
 
             return True
@@ -104,7 +104,7 @@ class Replayer:
             print('Frame: %d' % self.simulationFrame)
 
             self.frame += 1
-            self.canvas.after(1500, self.update)
+            self.canvas.after(10, self.update)
 
 # Load the config
 with open('config.yaml', 'r') as f:
@@ -141,7 +141,15 @@ if len(sys.argv) > 1 and sys.argv[1] == '-p':
 
     try:
         while True:
-            time.sleep(5)
+            alive = False
+            for processor in processors:
+                if processor.alive:
+                    alive = True
+
+            if alive:
+                time.sleep(5)
+            else:
+                break
     except KeyboardInterrupt:
         print('Shutting down')
 

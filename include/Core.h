@@ -25,6 +25,7 @@
 
 #include <vector>
 #include <chrono>
+#include <filesystem>
 
 #include "Simulate.cuh"
 #include "Types.cuh"
@@ -43,26 +44,39 @@ public:
 	void setParticles(Particle* particles);
 	void setBoxes(Box* boxes);
 
-	void setFramesPerWrite(int framesPerWrite);
+	void setFramesPerPosition(int framesPerPosition);
+	void setFramesPerState(int framesPerState);
+
+	void setTimeStep(float timeStep);
+	void setMinForceDistance(float minForceDistance);
+
 	void setKernel(std::string kernelName);
-
-	void verifyConfiguration();
-
-	std::chrono::milliseconds writeToDisk();
 
 	void run();
 	void kill();
 private:
+	void verifyConfiguration();
+
+	void writePositionToDisk();
+	void writeStateToDisk();
+	std::chrono::milliseconds writeToDisk();
+
 	volatile bool alive;
 
 	Instance* instance;
 	Particle* particles;
 	Box* boxes;
 
-	int framesPerWrite;
+	int framesPerPosition;
+	int framesPerState;
+
+	float timeStep;
+	float minForceDistance;
+
 	int kernel;
 	std::string kernelName;
 
 	int frame;
+	std::chrono::milliseconds startTime;
 	std::chrono::milliseconds frameTime;
 };
