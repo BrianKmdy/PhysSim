@@ -6,7 +6,7 @@
 #include <vector>
 #include <chrono>
 
-#include "Types.cuh"
+#include "Operations.cuh"
 
 const static constexpr int nThreads = 512;
 
@@ -43,8 +43,23 @@ struct Instance
 	int boxSize;
 	float maxBoundary;
 
+	float timeStep;
+	float minForceDistance;
+
 	int nParticles;
 	int nBoxes;
+
+	Instance():
+		dimensions(0),
+		divisions(0),
+		boxSize(0),
+		maxBoundary(0.0),
+		timeStep(1.0),
+		minForceDistance(1.0),
+		nParticles(0),
+		nBoxes(0)
+	{
+	}
 
 	__host__ __device__ int getBoxIndex(float2 position);
 

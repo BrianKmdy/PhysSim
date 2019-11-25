@@ -9,10 +9,11 @@
 #include <thread>
 
 #include "Paths.h"
+#include "Types.h"
 #include "Core.h"
 
 #include "Simulate.cuh"
-#include "Types.cuh"
+#include "Operations.cuh"
 
 #include "spdlog/spdlog.h"
 #include "spdlog/async.h"
@@ -61,60 +62,62 @@ void dumpState(std::string name)
 
 Instance* loadInstance()
 {
+	spdlog::info("Initializing instance");
+
 	// Create the instance for this simulation
 	Instance* instance = new Instance;
 
+	// Set the world configuration
 	instance->dimensions = gConfig["dimensions"].as<int>();
 	instance->divisions = gConfig["divisions"].as<int>();
 	instance->nBoxes = instance->divisions * instance->divisions;
 	instance->boxSize = instance->dimensions / instance->divisions;
 	instance->maxBoundary = instance->dimensions / 2;
 
+	// Set the timestep and minimum force distance
+	if (gConfig["timeStep"].IsDefined())
+		instance->timeStep = gConfig["timeStep"].as<float>();
+	if (gConfig["minForceDistance"].IsDefined())
+		instance->minForceDistance = gConfig["minForceDistance"].as<float>();
+
+	// Count the particles
+	instance->nParticles = getNParticles(&gConfig);
+
 	return instance;
 }
 
 Particle* loadParticles(Instance* instance)
 {
+	spdlog::info("Initializing particles");
+
 	// Initialize a random number generator for the particles
 	std::random_device rd;
 	std::mt19937 mt(rd());
 
-	// Count the particles
-	instance->nParticles = 0;
-	for (auto it = gConfig.begin(); it != gConfig.end(); ++it) {
-		auto node = it->second;
-
-		if (it->first.as<std::string>() == "particle") {
-			instance->nParticles++;
-		}
-		else if (it->first.as<std::string>() == "particles") {
-			instance->nParticles += node["n"].as<int>();
-		}
-	}
-
 	// Create the particles
 	Particle* particles = new Particle[instance->nParticles];
-	int index = 0;
-	for (auto it = gConfig.begin(); it != gConfig.end(); ++it) {
-		auto node = it->second;
 
-		if (it->first.as<std::string>() == "particle") {
-			particles[index].position = make_float2(node["x"].as<float>(), node["y"].as<float>());
-			particles[index].mass = node["mass"].as<float>();
-			particles[index].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
-
-			index++;
-		}
-		else if (it->first.as<std::string>() == "particles") {
+	// Initialize the particles based on the config
+	int pIndex = 0;
+	for (auto it = gConfig["particles"].begin(); it != gConfig["particles"].end(); ++it) {
+		YAML::Node node = *it;
+		if (node["n"].IsDefined()) {
 			float length = node["length"].as<float>();
 			std::uniform_real_distribution<float> dist(-length, length);
 			for (int i = 0; i < node["n"].as<int>(); i++) {
-				particles[index].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
-				particles[index].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
-				particles[index].mass = node["mass"].as<float>();
+				particles[pIndex].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
+				particles[pIndex].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+				particles[pIndex].mass = node["mass"].as<float>();
 
-				index++;
+				pIndex++;
 			}
+		}
+		else {
+			particles[pIndex].position = make_float2(node["x"].as<float>(), node["y"].as<float>());
+			particles[pIndex].mass = node["mass"].as<float>();
+			particles[pIndex].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+
+			pIndex++;
 		}
 	}
 
@@ -123,6 +126,8 @@ Particle* loadParticles(Instance* instance)
 
 Box* loadBoxes(Instance* instance)
 {
+	spdlog::info("Initializing boxes");
+
 	// Initialize the boxes
 	Box* boxes = new Box[instance->nBoxes];
 	memset(boxes, 0, instance->nBoxes * sizeof(Box));
@@ -132,32 +137,36 @@ Box* loadBoxes(Instance* instance)
 
 void loadConfig()
 {
-	spdlog::info("Loading config");
+	spdlog::info("Loading configuration");
 	gConfig = YAML::LoadFile("config.yaml");
+
+	if (!gConfig["name"].IsDefined())
+		throw std::exception("name must be defined");
 
 	if (gConfig["kernel"].IsDefined())
 		gCore.setKernel(gConfig["kernel"].as<std::string>());
 	if (gConfig["framesPerPosition"].IsDefined())
 		gCore.setFramesPerPosition(gConfig["framesPerPosition"].as<int>());
-	if (gConfig["framesPerFullState"].IsDefined())
+	if (gConfig["framesPerState"].IsDefined())
 		gCore.setFramesPerState(gConfig["framesPerState"].as<int>());
-	if (gConfig["timeStep"].IsDefined())
-		gCore.setTimeStep(gConfig["timeStep"].as<float>());
-	if (gConfig["minForceDistance"].IsDefined())
-		gCore.setMinForceDistance(gConfig["minForceDistance"].as<float>());
 
+	// Load the instance
 	Instance* instance = loadInstance();
-	Particle* particles = loadParticles(instance);
-	Box* boxes = loadBoxes(instance);
-
 	gCore.setInstance(instance);
+	gCore.verifyConfiguration();
+
+	// Load the particles
+	Particle* particles = loadParticles(instance);
 	gCore.setParticles(particles);
+
+	// Load the boxes
+	Box* boxes = loadBoxes(instance);
 	gCore.setBoxes(boxes);
 }
 
 void saveConfig()
 {
-	spdlog::info("Saving config");
+	spdlog::info("Saving configuration");
 
 	gConfig["version"] = version;
 
@@ -167,8 +176,6 @@ void saveConfig()
 
 void createDirectories()
 {
-	spdlog::info("Creating output directory");
-
 	if (std::filesystem::exists(OutputDirectory)) {
 		throw std::exception("Output directory already exists");
 	}

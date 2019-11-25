@@ -28,7 +28,7 @@
 #include <filesystem>
 
 #include "Simulate.cuh"
-#include "Types.cuh"
+#include "Operations.cuh"
 
 class Core
 {
@@ -36,6 +36,8 @@ public:
 	Core();
     Core(Instance* instance, Particle* particles, Box* boxes);
 	~Core();
+
+	void verifyConfiguration();
 
 	Instance* getInstance();
 	Particle* getParticles();
@@ -47,15 +49,11 @@ public:
 	void setFramesPerPosition(int framesPerPosition);
 	void setFramesPerState(int framesPerState);
 
-	void setTimeStep(float timeStep);
-	void setMinForceDistance(float minForceDistance);
-
 	void setKernel(std::string kernelName);
 
 	void run();
 	void kill();
 private:
-	void verifyConfiguration();
 
 	void writePositionToDisk();
 	void writeStateToDisk();
@@ -69,9 +67,6 @@ private:
 
 	int framesPerPosition;
 	int framesPerState;
-
-	float timeStep;
-	float minForceDistance;
 
 	int kernel;
 	std::string kernelName;

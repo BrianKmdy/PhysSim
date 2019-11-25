@@ -1,5 +1,6 @@
 #include <algorithm>
 
+#include "Types.h"
 #include "Simulate.cuh"
 
 std::vector<Particle*> gDeviceParticles;
@@ -83,7 +84,7 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 		// Launch the kernel
 		switch (kernel) {
 			case Kernel::experimental:
-				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+				experimental<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
 				break;
 			default:
 				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
@@ -103,15 +104,12 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 	}
 	auto kernelEndTime = getMilliseconds();
 
-	// XXX/bmoody Can consider moving this outside of the kernel
-	// XXX/bmoody Can store force in the particle struct and avoid storing particles 2x (need to test which is faster)
-	// XXX/bmoody Define time somewhere else
-	const float time = 1.0;
+	// Calculate each particle's new position and velocity based on its force for this frame
 	for (int i = 0; i < instance->nParticles; i++) {
 		float2 acceleration = particles[i].force / particles[i].mass;
 
-		particles[i].position += (particles[i].velocity * time) + (0.5 * acceleration * powf(time, 2.0));
-		particles[i].velocity += acceleration * time;
+		particles[i].position += (particles[i].velocity * instance->timeStep) + (0.5 * acceleration * powf(instance->timeStep, 2.0));
+		particles[i].velocity += acceleration * instance->timeStep;
 		particles[i].enforceBoundary(instance->maxBoundary);
 	}
 
@@ -120,9 +118,6 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 
 __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
 {
-	// XXX/bmoody Define minForceDistance somewhere else
-	const float minForceDistance = 1.0;
-
 	unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int stride = blockDim.x * gridDim.x;
 
@@ -132,14 +127,14 @@ __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instanc
 				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
 					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
 					float dist = particles[i].dist(particles[p].position);
-					if (dist > minForceDistance)
+					if (dist > instance.minForceDistance)
 						particles[i].force += (particles[i].direction(particles[p].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
 				}
 			}
 			else
 			{
 				float dist = particles[i].dist(boxes[o].centerMass);
-				if (dist > minForceDistance)
+				if (dist > instance.minForceDistance)
 					particles[i].force += (particles[i].direction(boxes[o].centerMass) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
 			}
 	 	}
@@ -148,9 +143,6 @@ __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instanc
 
 __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
 {
-	// XXX/bmoody Define minForceDistance somewhere else
-	const float minForceDistance = 1.0;
-
 	unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int stride = blockDim.x * gridDim.x;
 
@@ -160,14 +152,14 @@ __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, In
 				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
 					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
 					float dist = particles[i].dist(particles[p].position);
-					if (dist > minForceDistance)
+					if (dist > instance.minForceDistance)
 						particles[i].force += (particles[p].direction(particles[i].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
 				}
 			}
 			else
 			{
 				float dist = particles[i].dist(boxes[o].centerMass);
-				if (dist > minForceDistance)
+				if (dist > instance.minForceDistance)
 					particles[i].force += (boxes[o].direction(particles[i].position) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
 			}
 		}
