@@ -4,6 +4,10 @@
 #include "Types.h"
 #include "Processor.h"
 
+#include "SDL.h"
+#include "GL/glew.h"
+#include "gl/gl.h"
+
 SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
 bool m_bVblank = false;
@@ -28,7 +32,112 @@ int nParticles;
 
 int frame = 0;
 
-// ... other code below
+void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
+{
+	printf("GL Error: %s\n", message);
+}
+
+Shader::Shader(const char* vertexPath, const char* fragmentPath)
+{
+	// 1. retrieve the vertex/fragment source code from filePath
+	std::string vertexCode;
+	std::string fragmentCode;
+	std::ifstream vShaderFile;
+	std::ifstream fShaderFile;
+	// ensure ifstream objects can throw exceptions:
+	vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+	try
+	{
+		// open files
+		vShaderFile.open(vertexPath);
+		fShaderFile.open(fragmentPath);
+		std::stringstream vShaderStream, fShaderStream;
+		// read file's buffer contents into streams
+		vShaderStream << vShaderFile.rdbuf();
+		fShaderStream << fShaderFile.rdbuf();
+		// close file handlers
+		vShaderFile.close();
+		fShaderFile.close();
+		// convert stream into string
+		vertexCode = vShaderStream.str();
+		fragmentCode = fShaderStream.str();
+	}
+	catch (std::ifstream::failure e)
+	{
+		std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
+	}
+	const char* vShaderCode = vertexCode.c_str();
+	const char* fShaderCode = fragmentCode.c_str();
+	// 2. compile shaders
+	unsigned int vertex, fragment;
+	// vertex shader
+	vertex = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertex, 1, &vShaderCode, NULL);
+	glCompileShader(vertex);
+	checkCompileErrors(vertex, "VERTEX");
+	// fragment Shader
+	fragment = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragment, 1, &fShaderCode, NULL);
+	glCompileShader(fragment);
+	checkCompileErrors(fragment, "FRAGMENT");
+	// shader Program
+	ID = glCreateProgram();
+	glAttachShader(ID, vertex);
+	glAttachShader(ID, fragment);
+	glLinkProgram(ID);
+	checkCompileErrors(ID, "PROGRAM");
+	// delete the shaders as they're linked into our program now and no longer necessary
+	glDeleteShader(vertex);
+	glDeleteShader(fragment);
+}
+// activate the shader
+// ------------------------------------------------------------------------
+void Shader::use()
+{
+	glUseProgram(ID);
+}
+// utility uniform functions
+// ------------------------------------------------------------------------
+void Shader::setBool(const std::string& name, bool value) const
+{
+	glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
+}
+// ------------------------------------------------------------------------
+void Shader::setInt(const std::string& name, int value) const
+{
+	glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+}
+// ------------------------------------------------------------------------
+void Shader::setFloat(const std::string& name, float value) const
+{
+	glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+}
+
+void Shader::checkCompileErrors(unsigned int shader, std::string type)
+{
+	int success;
+	char infoLog[1024];
+	if (type != "PROGRAM")
+	{
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+		if (!success)
+		{
+			glGetShaderInfoLog(shader, 1024, NULL, infoLog);
+			std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+		}
+	}
+	else
+	{
+		glGetProgramiv(shader, GL_LINK_STATUS, &success);
+		if (!success)
+		{
+			glGetProgramInfoLog(shader, 1024, NULL, infoLog);
+			std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+		}
+	}
+}
+
 bool Processor::init()
 {
 	spdlog::info("Loading configuration");
@@ -59,6 +168,14 @@ bool Processor::init()
 		return false;
 	}
 
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+	//SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+
 	m_pCompanionWindow = SDL_CreateWindow("hellovr", 500, 200, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (m_pCompanionWindow == NULL)
 	{
@@ -66,7 +183,7 @@ bool Processor::init()
 		return false;
 	}
 
-	SDL_SetWindowFullscreen(m_pCompanionWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	// SDL_SetWindowFullscreen(m_pCompanionWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
 
 	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
 	if (m_pContext == NULL)
@@ -75,12 +192,18 @@ bool Processor::init()
 		return false;
 	}
 
+	glewExperimental = GL_TRUE;
 	GLenum nGlewError = glewInit();
 	if (nGlewError != GLEW_OK)
 	{
 		printf("%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString(nGlewError));
 		return false;
 	}
+	glGetError(); // to clear the error caused deep in GLEW
+
+	glDebugMessageCallback((GLDEBUGPROC)DebugCallback, nullptr);
+	glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 
 	if (SDL_GL_SetSwapInterval(m_bVblank ? 1 : 0) < 0)
 	{
@@ -88,96 +211,42 @@ bool Processor::init()
 		return false;
 	}
 
-	// Set up the shaders
-	const char* name = "Scene";
-	const char* vertexShader = "#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"out vec4 v4Color;\n"
-		"void main()\n"
-		"{\n"
-		"   v4Color = vec4(0, 1.0, 0, 1.0);\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n";
-	const char* fragmentShader = "#version 410\n"
-		"in vec4 v4Color;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = v4Color;\n"
-		"}\n";
+	spdlog::info("Loading shaders");
 
-	GLuint unProgramID = glCreateProgram();
+	// build and compile our shader program
+	// ------------------------------------
+	ourShader = new Shader("shader.vs", "shader.fs"); // you can name your shader files however you like
 
-	GLuint nSceneVertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(nSceneVertexShader, 1, &vertexShader, NULL);
-	glCompileShader(nSceneVertexShader);
+	// set up vertex data (and buffer(s)) and configure vertex attributes
+	// ------------------------------------------------------------------
+	float vertices[] = {
+		// positions         // colors
+		 0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // bottom right
+		-0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
+		 0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f   // top 
+	};
 
-	GLint vShaderCompiled = GL_FALSE;
-	glGetShaderiv(nSceneVertexShader, GL_COMPILE_STATUS, &vShaderCompiled);
-	if (vShaderCompiled != GL_TRUE)
-	{
-		printf("%s - Unable to compile vertex shader %d!\n", name, nSceneVertexShader);
-		glDeleteProgram(unProgramID);
-		glDeleteShader(nSceneVertexShader);
-		return 0;
-	}
-	glAttachShader(unProgramID, nSceneVertexShader);
-	glDeleteShader(nSceneVertexShader); // the program hangs onto this once it's attached
+	glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+	// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
+	glBindVertexArray(VAO);
 
-	GLuint  nSceneFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(nSceneFragmentShader, 1, &fragmentShader, NULL);
-	glCompileShader(nSceneFragmentShader);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	GLint fShaderCompiled = GL_FALSE;
-	glGetShaderiv(nSceneFragmentShader, GL_COMPILE_STATUS, &fShaderCompiled);
-	if (fShaderCompiled != GL_TRUE)
-	{
-		printf("%s - Unable to compile fragment shader %d!\n", name, nSceneFragmentShader);
-		glDeleteProgram(unProgramID);
-		glDeleteShader(nSceneFragmentShader);
-		return 0;
-	}
-
-	glAttachShader(unProgramID, nSceneFragmentShader);
-	glDeleteShader(nSceneFragmentShader); // the program hangs onto this once it's attached
-
-	glLinkProgram(unProgramID);
-
-	GLint programSuccess = GL_TRUE;
-	glGetProgramiv(unProgramID, GL_LINK_STATUS, &programSuccess);
-	if (programSuccess != GL_TRUE)
-	{
-		printf("%s - Error linking program %d!\n", name, unProgramID);
-		glDeleteProgram(unProgramID);
-		return 0;
-	}
-
-	glUseProgram(unProgramID);
-	glUseProgram(0);
-
-	m_nPointMatrixLocation = glGetUniformLocation(unProgramID, "matrix");
-	if (m_nPointMatrixLocation == -1)
-	{
-		printf("Unable to find matrix uniform in render model shader\n");
-		return false;
-	}
-
-	// Create the buffers
-	glGenVertexArrays(1, &m_unSceneVAO);
-	glBindVertexArray(m_unSceneVAO);
-
-	glGenBuffers(1, &m_glSceneVertBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glSceneVertBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * nParticles, points, GL_STATIC_DRAW);
-
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), 0);
+	// color attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
-	glBindVertexArray(0);
-	glDisableVertexAttribArray(0);
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	// glBindVertexArray(0);
+	glViewport(0, 0, width, height);
 
-	return true;
+	alive = true;
 }
 
 void Processor::handleInput()
@@ -197,13 +266,16 @@ void Processor::handleInput()
 
 void Processor::run()
 {
-	while (alive && frame < positionFiles.size()) {
+	spdlog::info("Running: {} positions", positionFiles.size());
+
+	while (alive) {
 		// loadPosition();
 		refresh();
 		handleInput();
-
-		frame++;
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
+
+	spdlog::info("Stopping: frame {} alive {}", frame, alive);
 }
 
 void Processor::loadPosition()
@@ -218,48 +290,45 @@ void Processor::loadPosition()
 
 void Processor::refresh()
 {
-	glViewport(0, 0, width, height);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	// render
+// ------
+	
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
 
-	points[0] = { 0, 0, 0, 1};
-	points[1] = { 50, 100, 0, 1 };
+	// render the triangle
+	ourShader->use();
+	glBindVertexArray(VAO);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	points[2] = { 0, 50, 0, 1 };
-	points[3] = { 100, 100, 0, 1 };
+	// SwapWindow
+	{
+		SDL_GL_SwapWindow(m_pCompanionWindow);
+	}
 
-	points[4] = { 50, 50, 0, 1 };
-	points[5] = { 100, 100, 0, 1 };
+	// Clear
+	{
+		// We want to make sure the glFinish waits for the entire present to complete, not just the submission
+		// of the command. So, we do a clear here right here so the glFinish will wait fully for the swap.
+		glClearColor(0.2, 0.2, 0.2, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
 
-	points[6] = { 100, 50, 0, 1 };
-	points[7] = { 100, 100, 0, 1 };
-
-	glBindVertexArray(m_unSceneVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glSceneVertBuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * nParticles, points, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 4, GL_FLOAT, false, sizeof(glm::vec4), (GLvoid*) 0);
-	glBindVertexArray(0);
-
-
-	glUseProgram(m_unSceneProgramID);
-	// glm::mat4 modelview;
-	// glm::vec4 eye(0., 0., -60000);
-	// glm::vec4 look(0., 0., 0.);
-	// glm::vec4 up(1., 1., 0.);
-	// modelview = glm::lookAt(eye, look, up);
-	glm::mat4 view(1.0f);
-	glUniformMatrix4fv(m_nPointMatrixLocation, 1, GL_FALSE, glm::value_ptr(view));
-	glBindVertexArray(m_unSceneVAO);
-
-	glDrawArrays(GL_LINES, 0, nParticles);
-
-	glBindVertexArray(0);
-	glUseProgram(0);
-	SDL_GL_SwapWindow(m_pCompanionWindow);
+	// Flush and wait for swap.
+	if (m_bVblank)
+	{
+		glFlush();
+		glFinish();
+	}
 }
 
 void Processor::shutdown()
 {
+	// optional: de-allocate all resources once they've outlived their purpose:
+// ------------------------------------------------------------------------
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+
 	if (m_pCompanionWindow)
 	{
 		SDL_DestroyWindow(m_pCompanionWindow);
@@ -269,6 +338,5 @@ void Processor::shutdown()
 	SDL_Quit();
 
 	delete[] points;
+	delete ourShader;
 }
-
-
