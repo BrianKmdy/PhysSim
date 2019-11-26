@@ -126,16 +126,16 @@ __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instanc
 			if (o == particles[i].boxId) {
 				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
 					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
-					float dist = particles[i].dist(particles[p].position);
+					float dist = distance(particles[i].position, particles[p].position);
 					if (dist > instance.minForceDistance)
-						particles[i].force += (particles[i].direction(particles[p].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
+						particles[i].force += (direction(particles[i].position, particles[p].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
 				}
 			}
 			else
 			{
-				float dist = particles[i].dist(boxes[o].centerMass);
+				float dist = distance(particles[i].position, boxes[o].centerMass);
 				if (dist > instance.minForceDistance)
-					particles[i].force += (particles[i].direction(boxes[o].centerMass) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
+					particles[i].force += (direction(particles[i].position, boxes[o].centerMass) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
 			}
 	 	}
 	}
@@ -151,16 +151,16 @@ __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, In
 			if (o == particles[i].boxId) {
 				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
 					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
-					float dist = particles[i].dist(particles[p].position);
+					float dist = distance(particles[i].position, particles[p].position);
 					if (dist > instance.minForceDistance)
-						particles[i].force += (particles[p].direction(particles[i].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
+						particles[i].force += (direction(particles[p].position, particles[i].position) / dist) * ((particles[i].mass * particles[p].mass) / powf(dist, 2.0));
 				}
 			}
 			else
 			{
-				float dist = particles[i].dist(boxes[o].centerMass);
+				float dist = distance(particles[i].position, boxes[o].centerMass);
 				if (dist > instance.minForceDistance)
-					particles[i].force += (boxes[o].direction(particles[i].position) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
+					particles[i].force += (direction(boxes[o].centerMass, particles[i].position) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
 			}
 		}
 	}
@@ -171,33 +171,6 @@ __host__ __device__ int Instance::getBoxIndex(float2 position)
 	int2 index = (position + (dimensions / 2)) / boxSize;
 
 	return index.x * divisions + index.y;
-}
-
-__host__ unsigned int Instance::size()
-{
-	return size(nParticles, nBoxes);
-}
-
-__host__ unsigned int Instance::size(int nParticles, int nBoxes)
-{
-	return sizeof(Instance) + (2 * sizeof(Particle) * nParticles) + (sizeof(Box) * nBoxes);
-}
-
-__host__ __device__ float2 Particle::direction(float2 otherPosition)
-{
-	return otherPosition - position;
-}
-
-__host__ __device__ float2 Box::direction(float2 otherPosition)
-{
-	return otherPosition - centerMass;
-}
-
-// XXX/bmoody Review the order
-//            Can probably make this more efficient by skippint the sqrt
-__host__ __device__ float Particle::dist(float2 otherPosition)
-{
-	return sqrtf(powf(otherPosition.x - position.x, 2.0) + powf(otherPosition.y - position.y, 2.0));
 }
 
 __host__ __device__ void Particle::enforceBoundary(float maxBoundary)
@@ -219,9 +192,4 @@ __host__ __device__ void Particle::enforceBoundary(float maxBoundary)
 		position.y = maxBoundary - 1;
 		velocity.y = 0.0;
 	}
-}
-
-std::chrono::milliseconds getMilliseconds()
-{
-	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
 }

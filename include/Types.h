@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <map>
+#include <chrono>
 
 #include "yaml-cpp/yaml.h"
 
@@ -20,6 +21,8 @@ struct Kernel
 	static std::map<std::string, int> fromString;
 	static std::map<int, std::string> toString;
 };
+
+std::chrono::milliseconds getMilliseconds();
 
 int getNParticles(YAML::Node* config);
 

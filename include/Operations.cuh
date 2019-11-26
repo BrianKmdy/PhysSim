@@ -5,6 +5,19 @@
 #include <map>
 #include <string>
 
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
+{
+	if (code != cudaSuccess)
+	{
+		fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+		if (abort) exit(code);
+	}
+}
+
+__host__ __device__ float2 direction(float2 a, float2 b);
+__host__ __device__ float distance(float2 a, float2 b);
+
 __host__ __device__ int2 operator+(const int2& a, const int2& b);
 __host__ __device__ int2 operator-(const int2& a, const int2& b);
 __host__ __device__ int2 operator*(const int2& a, const int2& b);

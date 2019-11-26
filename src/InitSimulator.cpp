@@ -203,6 +203,7 @@ int main()
 
 		// Load the config
 		loadConfig();
+		saveConfig();
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error intializing simulation: {}", e.what());

@@ -10,6 +10,11 @@ std::map<int, std::string> Kernel::toString = {
 	{Kernel::experimental, "experimental"}
 };
 
+std::chrono::milliseconds getMilliseconds()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch());
+}
+
 int getNParticles(YAML::Node* config)
 {
 	int nParticles = 0;

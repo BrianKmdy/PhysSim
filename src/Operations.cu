@@ -1,5 +1,19 @@
 #include "Operations.cuh"
 
+__host__ __device__ float2 direction(float2 a, float2 b)
+{
+	return b - a;
+}
+
+// XXX/bmoody Review the order
+//            Can probably make this more efficient by skippint the sqrt
+__host__ __device__ float distance(float2 a, float2 b)
+{
+	return sqrtf(powf(b.x - a.x, 2.0) + powf(b.y - a.y, 2.0));
+}
+
+
+
 // int2 int2
 __host__ __device__ int2 operator+(const int2& a, const int2& b) {
 	return make_int2(a.x + b.x, a.y + b.y);
