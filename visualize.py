@@ -116,7 +116,7 @@ class Replayer:
         if self.draw_frame():
             print('Frame: %d' % self.simulationFrame)
 
-            self.frame += 1
+            self.frame += 50
             self.canvas.after(10, self.update)
         else:
             sys.exit(0)
@@ -160,14 +160,12 @@ if len(sys.argv) > 1 and sys.argv[1] == '-p':
 
     try:
         while True:
-            alive = False
+            done = True
             for processor in processors:
-                if processor.alive:
-                    alive = True
+                if processor.frame < len(processor.files):
+                    done = False
 
-            if alive:
-                time.sleep(5)
-            else:
+            if(done):
                 sys.exit(0)
     except KeyboardInterrupt:
         print('Shutting down')

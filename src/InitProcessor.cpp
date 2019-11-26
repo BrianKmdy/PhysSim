@@ -1,25 +1,41 @@
-#include "argparse.hpp"
+#include <thread>
+
+#include "cxxopts.hpp"
 #include "spdlog/spdlog.h"
 
 #include "Paths.h"
+#include "Types.h"
 #include "Processor.h"
 
-int getNParticles()
+int main(int argc, char* argv[])
 {
+	try {
+		cxxopts::Options options(argv[0], "Post processing and visualization of particle physics simulations");
+		options
+			.add_options()
+			("help", "Print help")
+			("s, show", "Play back the simulation in real time");
 
-}
+		auto result = options.parse(argc, argv);
 
-int main(int argc, const char** argv)
-{
-	argparse::ArgumentParser parser;
+		if (result.count("help")) {
+			std::cout << options.help() << std::endl;
+			exit(0);
+		}
+	}
+	catch (const cxxopts::OptionException& e) {
+		std::cout << "Error parsing arguments: " << e.what() << std::endl;
+		exit(1);
+	}
 
-	parser.addArgument("-b");
-	parser.addArgument("-c", "--cactus", 1);
-	parser.addArgument("-o", "--optional");
-	parser.addArgument("-r", "--required", 1, true);
+	Processor processor;
+	if (processor.init()) {
+		auto start = getMilliseconds();
+		while (getMilliseconds() - start < std::chrono::seconds(10))
+			processor.refresh();
 
-	parser.parse(argc, argv);
-
+		processor.shutdown();
+	}
 
 	return 0;
 }

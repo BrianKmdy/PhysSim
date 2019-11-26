@@ -141,6 +141,7 @@ __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instanc
 	}
 }
 
+// XXX/bmoody Can make this more accurate (expensive) by having each particle directly interact with the particles of adjacent boxes as well
 __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
 {
 	unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;

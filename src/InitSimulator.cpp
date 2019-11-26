@@ -103,7 +103,7 @@ Particle* loadParticles(Instance* instance)
 		YAML::Node node = *it;
 		if (node["n"].IsDefined()) {
 			float length = node["length"].as<float>();
-			std::uniform_real_distribution<float> dist(-length, length);
+			std::uniform_real_distribution<float> dist(-length / 2, length / 2);
 			for (int i = 0; i < node["n"].as<int>(); i++) {
 				particles[pIndex].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
 				particles[pIndex].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
@@ -176,9 +176,8 @@ void saveConfig()
 
 void createDirectories()
 {
-	if (std::filesystem::exists(OutputDirectory)) {
-		throw std::exception("Output directory already exists");
-	}
+	if (std::filesystem::exists(OutputDirectory))
+		throw std::exception("output directory already exists");
 
 	std::filesystem::create_directory(OutputDirectory);
 	std::filesystem::create_directory(PositionDataDirectory);
