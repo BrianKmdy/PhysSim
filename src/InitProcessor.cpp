@@ -1,7 +1,6 @@
 #include <thread>
 
 #include "cxxopts.hpp"
-#include "spdlog/spdlog.h"
 
 #include "Paths.h"
 #include "Types.h"
@@ -9,6 +8,7 @@
 
 int main(int argc, char* argv[])
 {
+	// Parse command line arguments
 	try {
 		cxxopts::Options options(argv[0], "Post processing and visualization of particle physics simulations");
 		options
@@ -28,12 +28,10 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
+	// Run the post processor
 	Processor processor;
 	if (processor.init()) {
-		auto start = getMilliseconds();
-		while (getMilliseconds() - start < std::chrono::seconds(10))
-			processor.refresh();
-
+		processor.run();
 		processor.shutdown();
 	}
 

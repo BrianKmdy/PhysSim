@@ -138,7 +138,7 @@ Box* loadBoxes(Instance* instance)
 void loadConfig()
 {
 	spdlog::info("Loading configuration");
-	gConfig = YAML::LoadFile("config.yaml");
+	gConfig = YAML::LoadFile(ConfigFileName);
 
 	if (!gConfig["name"].IsDefined())
 		throw std::exception("name must be defined");

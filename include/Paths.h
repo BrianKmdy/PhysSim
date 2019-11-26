@@ -10,3 +10,5 @@ const extern std::filesystem::path StateDataDirectory;
 
 const extern std::filesystem::path OutputConfigFilePath;
 const extern std::filesystem::path LogFilePath;
+
+const extern std::string ConfigFileName;
