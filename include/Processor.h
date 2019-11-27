@@ -48,4 +48,8 @@ private:
 
 	unsigned int VBO = 0;
 	unsigned int VAO = 0;
+
+	unsigned int modelMatrix = 0;
+	unsigned int viewMatrix = 0;
+	unsigned int projectionMatrix = 0;
 };
