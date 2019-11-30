@@ -145,41 +145,23 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type)
 	}
 }
 
-FrameBuffer::FrameBuffer(std::map<int, std::string> files, int queueSize, int nParticles, int stepSize):
-	alive(true),
-	files(files),
-	bufferIndex(0),
-	frameIndex(0),
-	stepSize(stepSize)
+FrameBufferIn::FrameBufferIn(int queueSize, int nParticles, int stepSize, std::map<int, std::string> files):
+	FrameBuffer<glm::vec3[]>(queueSize, nParticles, stepSize),
+	files(files)
 {
-	framePool.reserve(queueSize);
 	for (int i = 0; i < queueSize; i++)
 		framePool.push_back(std::shared_ptr<glm::vec3[]>(new glm::vec3[nParticles]));
 }
 
-bool FrameBuffer::hasMoreFrames()
+bool FrameBufferIn::hasMoreFrames()
 {
 	return bufferIndex < files.size();
 }
 
-bool FrameBuffer::hasMoreFramesBuffered()
+ void FrameBufferIn::nextFrame(std::shared_ptr<glm::vec3[]>* frame)
 {
-	return frameIndex < bufferIndex;
-}
+	*frame = nullptr;
 
-// XXX/bmoody Need to implement
-bool FrameBuffer::waitForFull()
-{
-	return true;
-}
-
-int FrameBuffer::bufferSize()
-{
-	return frames.size();
-}
-
-void FrameBuffer::nextFrame(std::shared_ptr<glm::vec3[]>* frame)
-{
 	try {
 		*frame = frames.at(frameIndex);
 		frameIndex += stepSize;
@@ -189,12 +171,7 @@ void FrameBuffer::nextFrame(std::shared_ptr<glm::vec3[]>* frame)
 	}
 }
 
-void FrameBuffer::stop()
-{
-	alive = false;
-}
-
-void FrameBuffer::run()
+void FrameBufferIn::run()
 {
 	spdlog::info("Framebuffer thread starting up");
 
@@ -237,8 +214,7 @@ Processor::Processor():
 	alive(true),
 	currentFrame(nullptr),
 	shader(nullptr),
-	frameBuffer(nullptr),
-	frameBufferThread(nullptr)
+	frameBuffer(nullptr)
 {
 }
 
@@ -327,11 +303,11 @@ bool Processor::init()
 	// glBindVertexArray(0);
 	glViewport(0, 0, width, height);
 
-	frameBuffer = std::make_shared<FrameBuffer>(positionFiles, 30000, nParticles, 1);
-	frameBufferThread = std::make_shared<std::thread>(&FrameBuffer::run, frameBuffer.get());
+	frameBuffer = std::make_shared<FrameBufferIn>(30000, nParticles, 5, positionFiles);
+	frameBuffer->start();
 
 	spdlog::info("Buffering for 2 seconds");
-	std::this_thread::sleep_for(std::chrono::seconds(2));
+	std::this_thread::sleep_for(std::chrono::seconds(5));
 }
 
 void Processor::handleInput()
@@ -353,12 +329,13 @@ void Processor::run()
 {
 	spdlog::info("Running: {} positions", positionFiles.size());
 
-	while (alive && (frameBuffer->hasMoreFramesBuffered() || frameBuffer->hasMoreFrames())) {
+	while (alive && (frameBuffer->hasFramesBuffered() || frameBuffer->hasMoreFrames())) {
 		handleInput();
 
-		if (frameBuffer->hasMoreFramesBuffered()) {
+		if (frameBuffer->hasFramesBuffered()) {
 			frameBuffer->nextFrame(&currentFrame);
-			refresh();
+			if (currentFrame)
+				refresh();
 		}
 		else {
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -421,7 +398,7 @@ void Processor::shutdown()
 	}
 
 	frameBuffer->stop();
-	frameBufferThread->join();
+	frameBuffer->join();
 
 	SDL_Quit();
 }

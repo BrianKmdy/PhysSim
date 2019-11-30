@@ -27,32 +27,17 @@ private:
 	void checkCompileErrors(unsigned int shader, std::string type);
 };
 
-class FrameBuffer
+class FrameBufferIn : public FrameBuffer<glm::vec3[]>
 {
 public:
-	FrameBuffer(std::map<int, std::string> files, int queueSize, int nParticles, int stepSize);
+	FrameBufferIn(int queueSize, int nParticles, int stepSize, std::map<int, std::string> files);
 
 	bool hasMoreFrames();
-	bool hasMoreFramesBuffered();
-	bool waitForFull();
 
-	int bufferSize();
-
-	void nextFrame(std::shared_ptr<glm::vec3[]>* frame);
-
-	void stop();
-	void run();
+	virtual void nextFrame(std::shared_ptr<glm::vec3[]>* frame);
+	virtual void run();
 
 private:
-	bool alive;
-
-	int frameIndex;
-	int bufferIndex;
-	int stepSize;
-
-	std::map<int, std::shared_ptr<glm::vec3[]>> frames;
-	std::vector<std::shared_ptr<glm::vec3[]>> framePool;
-
 	std::map<int, std::string> files;
 };
 
@@ -74,8 +59,7 @@ private:
 	std::shared_ptr<glm::vec3[]> currentFrame;
 
 	std::shared_ptr<Shader> shader;
-	std::shared_ptr<FrameBuffer> frameBuffer;
-	std::shared_ptr<std::thread> frameBufferThread;
+	std::shared_ptr<FrameBufferIn> frameBuffer;
 
 	unsigned int VBO = 0;
 	unsigned int VAO = 0;

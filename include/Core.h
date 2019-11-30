@@ -30,6 +30,15 @@
 #include "Simulate.cuh"
 #include "Operations.cuh"
 
+class Writer
+{
+public:
+	Writer();
+	
+private:
+
+};
+
 class Core
 {
 public:
