@@ -11,13 +11,6 @@
 SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
 bool m_bVblank = false;
-GLint m_nSceneMatrixLocation;
-GLuint m_unSceneProgramID;
-GLuint m_unCompanionWindowVAO;
-GLuint m_unCompanionWindowProgramID;
-GLuint m_unSceneVAO;
-GLuint m_glSceneVertBuffer;
-GLuint m_nPointMatrixLocation;
 
 int width = 2560;
 int height = 1440;
@@ -26,7 +19,7 @@ glm::vec3* points = nullptr;
 
 YAML::Node gConfig;
 
-std::vector<std::string> positionFiles;
+std::map<int, std::string> positionFiles;
 
 int nParticles;
 
@@ -50,11 +43,12 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
 	std::string fragmentCode;
 	std::ifstream vShaderFile;
 	std::ifstream fShaderFile;
+
 	// ensure ifstream objects can throw exceptions:
 	vShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
 	fShaderFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-	try
-	{
+
+	try {
 		// open files
 		vShaderFile.open(vertexPath);
 		fShaderFile.open(fragmentPath);
@@ -69,68 +63,75 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath)
 		vertexCode = vShaderStream.str();
 		fragmentCode = fShaderStream.str();
 	}
-	catch (std::ifstream::failure e)
-	{
-		std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;
+	catch (std::ifstream::failure e) {
+		spdlog::error("Unable to load shader file: {}", e.what());
 	}
+
 	const char* vShaderCode = vertexCode.c_str();
 	const char* fShaderCode = fragmentCode.c_str();
 	// 2. compile shaders
 	unsigned int vertex, fragment;
+	
 	// vertex shader
 	vertex = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex, 1, &vShaderCode, NULL);
 	glCompileShader(vertex);
-	checkCompileErrors(vertex, "VERTEX");
+	checkCompileErrors(vertex, "Vertex");
+
 	// fragment Shader
 	fragment = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(fragment, 1, &fShaderCode, NULL);
 	glCompileShader(fragment);
-	checkCompileErrors(fragment, "FRAGMENT");
+	checkCompileErrors(fragment, "Fragment");
+
 	// shader Program
 	ID = glCreateProgram();
 	glAttachShader(ID, vertex);
 	glAttachShader(ID, fragment);
 	glLinkProgram(ID);
-	checkCompileErrors(ID, "PROGRAM");
+	checkCompileErrors(ID, "Program");
+
 	// delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(vertex);
 	glDeleteShader(fragment);
 }
-// activate the shader
-// ------------------------------------------------------------------------
+
 void Shader::use()
 {
 	glUseProgram(ID);
 }
-// utility uniform functions
-// ------------------------------------------------------------------------
+
 void Shader::setBool(const std::string& name, bool value) const
 {
 	glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
 }
-// ------------------------------------------------------------------------
+
 void Shader::setInt(const std::string& name, int value) const
 {
 	glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
 }
-// ------------------------------------------------------------------------
+
 void Shader::setFloat(const std::string& name, float value) const
 {
 	glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
+}
+
+void Shader::setMatrix(const std::string& name, glm::mat4 value) const
+{
+	glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
 }
 
 void Shader::checkCompileErrors(unsigned int shader, std::string type)
 {
 	int success;
 	char infoLog[1024];
-	if (type != "PROGRAM")
+	if (type != "Program")
 	{
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 		if (!success)
 		{
 			glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-			std::cout << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+			spdlog::error("Shader compiliation error (type {}): {}", type, infoLog);
 		}
 	}
 	else
@@ -139,9 +140,106 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type)
 		if (!success)
 		{
 			glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-			std::cout << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n" << infoLog << "\n -- --------------------------------------------------- -- " << std::endl;
+			spdlog::error("Opengl program linking error (type {}): {}", type, infoLog);
 		}
 	}
+}
+
+FrameBuffer::FrameBuffer(std::map<int, std::string> files, int queueSize, int nParticles, int stepSize):
+	alive(true),
+	files(files),
+	bufferIndex(0),
+	frameIndex(0),
+	stepSize(stepSize)
+{
+	framePool.reserve(queueSize);
+	for (int i = 0; i < queueSize; i++)
+		framePool.push_back(std::shared_ptr<glm::vec3[]>(new glm::vec3[nParticles]));
+}
+
+bool FrameBuffer::hasMoreFrames()
+{
+	return bufferIndex < files.size();
+}
+
+bool FrameBuffer::hasMoreFramesBuffered()
+{
+	return frameIndex < bufferIndex;
+}
+
+// XXX/bmoody Need to implement
+bool FrameBuffer::waitForFull()
+{
+	return true;
+}
+
+int FrameBuffer::bufferSize()
+{
+	return frames.size();
+}
+
+void FrameBuffer::nextFrame(std::shared_ptr<glm::vec3[]>* frame)
+{
+	try {
+		*frame = frames.at(frameIndex);
+		frameIndex += stepSize;
+	}
+	catch (std::out_of_range e) {
+		spdlog::error("Unable to get frame at index {}", frameIndex);
+	}
+}
+
+void FrameBuffer::stop()
+{
+	alive = false;
+}
+
+void FrameBuffer::run()
+{
+	spdlog::info("Framebuffer thread starting up");
+
+	while (alive) {
+		// As the frame index moves forward we can pop frames off to re-use them in the frame pool
+		if (frameIndex > frames.begin()->first + 1) {
+			framePool.push_back(frames.begin()->second);
+			frames.erase(frames.begin());
+		}
+
+		// If we have frames available to load and space in the pool then load the next frame
+		if (hasMoreFrames() && !framePool.empty()) {
+			try {
+				std::ifstream positionFile(files[bufferIndex], std::ios_base::in | std::ios_base::binary);
+				glm::vec3* positions = &framePool.back()[0];
+
+				for (int i = 0; i < nParticles; i++) {
+					positionFromFile(&positionFile, &positions[i].x, &positions[i].y);
+				}
+				positionFile.close();
+
+				frames[bufferIndex] = framePool.back();
+				framePool.pop_back();
+				bufferIndex += stepSize;
+			}
+			catch (std::exception e) {
+				spdlog::error("Unable to read frame {} from file", bufferIndex);
+			}
+		}
+		// Otherwise sleep
+		else {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+	}
+
+	spdlog::info("Framebuffer thread shutting down");
+}
+
+Processor::Processor():
+	alive(true),
+	currentFrame(nullptr),
+	shader(nullptr),
+	frameBuffer(nullptr),
+	frameBufferThread(nullptr)
+{
 }
 
 bool Processor::init()
@@ -156,16 +254,9 @@ bool Processor::init()
 		memset(points, 0, nParticles * sizeof(glm::vec3));
 
 		for (auto& path : std::filesystem::directory_iterator(PositionDataDirectory)) {
-			positionFiles.push_back(path.path().string());
+			std::string stringPath = path.path().string();
+			positionFiles[std::stoi(stringPath.substr(stringPath.find('-') + 1, stringPath.find('.')))] = stringPath;
 		}
-
-		std::sort(positionFiles.begin(), positionFiles.end(),
-			[] (const std::string& a, const std::string& b) -> bool
-			{
-				int aN = std::stoi(a.substr(a.find('-') + 1, a.find('.')));
-				int bN = std::stoi(b.substr(b.find('-') + 1, b.find('.')));
-				return aN < bN;
-			});
 	}
 	else {
 		spdlog::error("Configuration file doesn't exist");
@@ -195,7 +286,6 @@ bool Processor::init()
 	}
 
 	SDL_SetWindowFullscreen(m_pCompanionWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
-
 	SDL_GetWindowSize(m_pCompanionWindow, &width, &height);
 
 	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
@@ -228,49 +318,20 @@ bool Processor::init()
 
 	// build and compile our shader program
 	// ------------------------------------
-	ourShader = new Shader("shader.vs", "shader.fs"); // you can name your shader files however you like
-
-	// set up vertex data (and buffer(s)) and configure vertex attributes
-	// ------------------------------------------------------------------
-//	float vertices[] = {
-//		// positions         // colors
-//		 10000.0f, -10000.0f, 0.0f,
-//		-10000.0f, -0.5f, 0.0f,
-//		 0.0f,  0.5f, 0.0f
-//	};
+	shader = std::make_shared<Shader>("shader.vs", "shader.fs"); // you can name your shader files however you like
 
 	glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
-
-	// Get a handle for the view matrix
-	modelMatrix = glGetUniformLocation(ourShader->ID, "model");
-	if (viewMatrix == -1)
-	{
-		printf("Unable to find matrix uniform in scene shader\n");
-		return false;
-	}
-
-	// Get a handle for the view matrix
-	viewMatrix = glGetUniformLocation(ourShader->ID, "view");
-	if (viewMatrix == -1)
-	{
-		printf("Unable to find matrix uniform in scene shader\n");
-		return false;
-	}
-
-	projectionMatrix = glGetUniformLocation(ourShader->ID, "projection");
-	if (projectionMatrix == -1)
-	{
-		printf("Unable to find matrix uniform in scene shader\n");
-		return false;
-	}
-
 	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
 	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 	// glBindVertexArray(0);
 	glViewport(0, 0, width, height);
 
-	alive = true;
+	frameBuffer = std::make_shared<FrameBuffer>(positionFiles, 30000, nParticles, 1);
+	frameBufferThread = std::make_shared<std::thread>(&FrameBuffer::run, frameBuffer.get());
+
+	spdlog::info("Buffering for 2 seconds");
+	std::this_thread::sleep_for(std::chrono::seconds(2));
 }
 
 void Processor::handleInput()
@@ -292,36 +353,26 @@ void Processor::run()
 {
 	spdlog::info("Running: {} positions", positionFiles.size());
 
-	while (alive && frame < positionFiles.size()) {
-		loadPosition();
-		refresh();
+	while (alive && (frameBuffer->hasMoreFramesBuffered() || frameBuffer->hasMoreFrames())) {
 		handleInput();
-		frame++;
-	}
 
-	spdlog::info("Stopping: frame {} alive {}", frame, alive);
-}
-
-void Processor::loadPosition()
-{
-	std::ifstream positionFile(positionFiles[frame], std::ios_base::in | std::ios_base::binary);
-	for (int i = 0; i < nParticles; i++) {
-		positionFromFile(&positionFile, &points[i].x, &points[i].y);
+		if (frameBuffer->hasMoreFramesBuffered()) {
+			frameBuffer->nextFrame(&currentFrame);
+			refresh();
+		}
+		else {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
 	}
 }
 
 void Processor::refresh()
 {
-	// render
-// ------
-
-		// bind the Vertex Array Object first, then bind and set vertex buffer(s), and then configure vertex attributes(s).
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(glm::vec3), points, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(glm::vec3), currentFrame.get(), GL_STATIC_DRAW);
 
-	// position attribute
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*) 0);
 	glEnableVertexAttribArray(0);
 
@@ -332,18 +383,18 @@ void Processor::refresh()
 
 	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize));
 	glm::mat4 view = glm::lookAt(eye, look, up);
-	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float) width / (float) height, 10.0f, 10000.0f);
 	
 	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	// render the triangle
-	ourShader->use();
-	
-	// Set the matrices
-	glUniformMatrix4fv(modelMatrix, 1, GL_FALSE, glm::value_ptr(model));
-	glUniformMatrix4fv(viewMatrix, 1, GL_FALSE, glm::value_ptr(view));
-	glUniformMatrix4fv(projectionMatrix, 1, GL_FALSE, glm::value_ptr(projection));
+	// Set the shader
+	shader->use();
+
+	// XXX/bmoody Don't have to set these every frame
+	shader->setMatrix("model", model);
+	shader->setMatrix("view", view);
+	shader->setMatrix("projection", projection);
 
 	// Draw the vertices
 	glBindVertexArray(VAO);
@@ -369,8 +420,8 @@ void Processor::shutdown()
 		m_pCompanionWindow = NULL;
 	}
 
-	SDL_Quit();
+	frameBuffer->stop();
+	frameBufferThread->join();
 
-	delete[] points;
-	delete ourShader;
+	SDL_Quit();
 }

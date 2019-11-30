@@ -4,52 +4,79 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <deque>
 
 #include "spdlog/spdlog.h"
 #include "glm/ext.hpp"
 
+// Base shader class code from https://learnopengl.com/Getting-started/Shaders
 class Shader
 {
 public:
 	unsigned int ID;
-	// constructor generates the shader on the fly
-	// ------------------------------------------------------------------------
+
 	Shader(const char* vertexPath, const char* fragmentPath);
-	// activate the shader
-	// ------------------------------------------------------------------------
+
 	void use();
-	// utility uniform functions
-	// ------------------------------------------------------------------------
+
 	void setBool(const std::string& name, bool value) const;
-	// ------------------------------------------------------------------------
 	void setInt(const std::string& name, int value) const;
-	// ------------------------------------------------------------------------
 	void setFloat(const std::string& name, float value) const;
+	void setMatrix(const std::string& name, glm::mat4 value) const;
 private:
-	// utility function for checking shader compilation/linking errors.
-	// ------------------------------------------------------------------------
 	void checkCompileErrors(unsigned int shader, std::string type);
+};
+
+class FrameBuffer
+{
+public:
+	FrameBuffer(std::map<int, std::string> files, int queueSize, int nParticles, int stepSize);
+
+	bool hasMoreFrames();
+	bool hasMoreFramesBuffered();
+	bool waitForFull();
+
+	int bufferSize();
+
+	void nextFrame(std::shared_ptr<glm::vec3[]>* frame);
+
+	void stop();
+	void run();
+
+private:
+	bool alive;
+
+	int frameIndex;
+	int bufferIndex;
+	int stepSize;
+
+	std::map<int, std::shared_ptr<glm::vec3[]>> frames;
+	std::vector<std::shared_ptr<glm::vec3[]>> framePool;
+
+	std::map<int, std::string> files;
 };
 
 class Processor
 {
 public:
+	Processor();
+
 	bool init();
 	void run();
 	void shutdown();
 
 private:
 	void handleInput();
-	void loadPosition();
 	void refresh();
 
 	bool alive;
-	Shader* ourShader;
+
+	std::shared_ptr<glm::vec3[]> currentFrame;
+
+	std::shared_ptr<Shader> shader;
+	std::shared_ptr<FrameBuffer> frameBuffer;
+	std::shared_ptr<std::thread> frameBufferThread;
 
 	unsigned int VBO = 0;
 	unsigned int VAO = 0;
-
-	unsigned int modelMatrix = 0;
-	unsigned int viewMatrix = 0;
-	unsigned int projectionMatrix = 0;
 };
