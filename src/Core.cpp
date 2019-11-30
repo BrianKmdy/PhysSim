@@ -5,14 +5,67 @@
 
 #include "Core.h"
 #include "Paths.h"
-#include "Types.h"
+
+FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int stepSize):
+	FrameBuffer<Particle>(queueSize, nParticles, stepSize)
+{
+}
+
+void FrameBufferOut::nextFrame(std::shared_ptr<Particle[]>* frame)
+{
+	while (framePool.empty() && frameIndex == frames.begin()->first) {
+		spdlog::warn("Waiting for a free buffer frame");
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+
+	while (frameIndex > frames.begin()->first) {
+		framePool.push_back(frames.begin()->second);
+		frames.erase(frames.begin()->first);
+	}
+
+	memcpy(framePool.back().get(), frame->get(), nParticles * sizeof(Particle));
+	frames[bufferIndex] = framePool.back();
+	framePool.pop_back();
+	bufferIndex += stepSize;
+}
+
+void FrameBufferOut::run()
+{
+	spdlog::info("Framebuffer thread starting up");
+
+	while (alive) {
+		// If we have frames available to load and space in the pool then load the next frame
+		if (hasFramesBuffered()) {
+			try {
+				std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
+
+				auto frame = frames[frameIndex];
+				for (int i = 0; i < nParticles; i++)
+					positionToFile(&file, &frame[i].position.x, &frame[i].position.y);
+
+				file.close();
+
+				frameIndex += stepSize;
+			}
+			catch (std::exception e) {
+				spdlog::error("Unable to read frame {} from file", bufferIndex);
+			}
+		}
+		// Otherwise sleep
+		else {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		}
+	}
+
+	spdlog::info("Framebuffer thread shutting down");
+}
 
 Core::Core():
 	Core(nullptr, nullptr, nullptr)
 {
 }
 
-Core::Core(Instance* instance, Particle* particles, Box* boxes):
+Core::Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes):
 	alive(true),
 	instance(instance),
 	particles(particles),
@@ -20,6 +73,7 @@ Core::Core(Instance* instance, Particle* particles, Box* boxes):
 	frame(0),
 	framesPerPosition(1),
 	framesPerState(100),
+	frameBuffer(nullptr),
 	kernel(Kernel::unknown),
 	kernelName("not set"),
 	startTime(std::chrono::milliseconds(0)),
@@ -29,12 +83,6 @@ Core::Core(Instance* instance, Particle* particles, Box* boxes):
 
 Core::~Core()
 {
-	if (this->instance)
-		delete[] instance;
-	if (this->particles)
-		delete[] particles;
-	if (this->boxes)
-		delete[] boxes;
 }
 
 void Core::verifyConfiguration()
@@ -128,42 +176,33 @@ void Core::verifyConfiguration()
 		throw std::exception("Invalid configuration");
 }
 
-Instance* Core::getInstance()
+std::shared_ptr<Instance> Core::getInstance()
 {
 	return instance;
 }
 
-Particle* Core::getParticles()
+std::shared_ptr<Particle[]> Core::getParticles()
 {
 	return particles;
 }
 
-Box* Core::getBoxes()
+std::shared_ptr<Box[]> Core::getBoxes()
 {
 	return boxes;
 }
 
-void Core::setInstance(Instance* instance)
+void Core::setInstance(std::shared_ptr<Instance> instance)
 {
-	if (this->instance)
-		delete[] this->instance;
-
 	this->instance = instance;
 }
 
-void Core::setParticles(Particle* particles)
+void Core::setParticles(std::shared_ptr<Particle[]> particles)
 {
-	if (this->particles)
-		delete[] this->particles;
-
 	this->particles = particles;
 }
 
-void Core::setBoxes(Box* boxes)
+void Core::setBoxes(std::shared_ptr<Box[]> boxes)
 {
-	if (this->boxes)
-		delete[] this->boxes;
-
 	this->boxes = boxes;
 }
 
@@ -207,26 +246,32 @@ std::chrono::milliseconds Core::writeToDisk()
 {
 	auto writeStartTime = getMilliseconds();
 
-	if (frame % framesPerPosition == 0)
-		writePositionToDisk();
-	if (frame % framesPerState == 0)
-		writeStateToDisk();
+	frameBuffer->nextFrame(&particles);
+
+//	if (frame % framesPerPosition == 0)
+//		writePositionToDisk();
+//	if (frame % framesPerState == 0)
+//		writeStateToDisk();
 
 	return getMilliseconds() - writeStartTime;
 }
 
-void Core::run() {
+void Core::run()
+{
+	frameBuffer = std::make_shared<FrameBufferOut>(30000, instance->nParticles, 5);
+	frameBuffer->start();
+
 	startTime = getMilliseconds();
 
 	spdlog::info("Initialzing cuda");
-	initializeCuda(instance);
+	initializeCuda(instance.get());
 
 	spdlog::info("Running simulation");
 	frameTime = getMilliseconds();
 
 	while (alive) {
 		// Run the kernel
-		auto kernelTime = simulate(instance, particles, boxes, kernel);
+		auto kernelTime = simulate(instance.get(), particles.get(), boxes.get(), kernel);
 
 		// Write the results to disk
 		auto writeTime = writeToDisk();
@@ -238,6 +283,9 @@ void Core::run() {
 
 	spdlog::info("Simulation shutting down");
 	unInitializeCuda();
+
+	frameBuffer->stop();
+	frameBuffer->join();
 }
 
 void Core::kill() {

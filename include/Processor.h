@@ -15,7 +15,7 @@ class Shader
 public:
 	unsigned int ID;
 
-	Shader(const char* vertexPath, const char* fragmentPath);
+	Shader(std::string vertexPath, std::string fragmentPath);
 
 	void use();
 
@@ -27,7 +27,7 @@ private:
 	void checkCompileErrors(unsigned int shader, std::string type);
 };
 
-class FrameBufferIn : public FrameBuffer<glm::vec3[]>
+class FrameBufferIn : public FrameBuffer<glm::vec3>
 {
 public:
 	FrameBufferIn(int queueSize, int nParticles, int stepSize, std::map<int, std::string> files);
@@ -46,7 +46,7 @@ class Processor
 public:
 	Processor();
 
-	bool init();
+	bool init(std::string path);
 	void run();
 	void shutdown();
 

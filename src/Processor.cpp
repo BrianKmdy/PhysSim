@@ -36,7 +36,7 @@ void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severi
 // XXX/bmoody Need to add handling of keyframes, preloading position data into a circular queue, and interpolating between keyframes
 // XXX/bmoody Also need to add saving directly to images
 
-Shader::Shader(const char* vertexPath, const char* fragmentPath)
+Shader::Shader(std::string vertexPath, std::string fragmentPath)
 {
 	// 1. retrieve the vertex/fragment source code from filePath
 	std::string vertexCode;
@@ -146,11 +146,9 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type)
 }
 
 FrameBufferIn::FrameBufferIn(int queueSize, int nParticles, int stepSize, std::map<int, std::string> files):
-	FrameBuffer<glm::vec3[]>(queueSize, nParticles, stepSize),
+	FrameBuffer<glm::vec3>(queueSize, nParticles, stepSize),
 	files(files)
 {
-	for (int i = 0; i < queueSize; i++)
-		framePool.push_back(std::shared_ptr<glm::vec3[]>(new glm::vec3[nParticles]));
 }
 
 bool FrameBufferIn::hasMoreFrames()
@@ -177,7 +175,7 @@ void FrameBufferIn::run()
 
 	while (alive) {
 		// As the frame index moves forward we can pop frames off to re-use them in the frame pool
-		if (frameIndex > frames.begin()->first + 1) {
+		if (frames.begin()->first < frameIndex - 1) {
 			framePool.push_back(frames.begin()->second);
 			frames.erase(frames.begin());
 		}
@@ -218,7 +216,7 @@ Processor::Processor():
 {
 }
 
-bool Processor::init()
+bool Processor::init(std::string path)
 {
 	spdlog::info("Loading configuration");
 	if (std::filesystem::exists(OutputConfigFilePath) && std::filesystem::exists(PositionDataDirectory)) {
@@ -240,6 +238,10 @@ bool Processor::init()
 		return false;
 	}
 
+	// Start the frame buffer
+	frameBuffer = std::make_shared<FrameBufferIn>(30000, nParticles, 5, positionFiles);
+	frameBuffer->start();
+
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
 	{
 		printf("%s - SDL could not initialize! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
@@ -254,7 +256,7 @@ bool Processor::init()
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
 
-	m_pCompanionWindow = SDL_CreateWindow("Simulation", 500, 200, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	m_pCompanionWindow = SDL_CreateWindow("Simulation", 0, 0, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (m_pCompanionWindow == NULL)
 	{
 		printf("%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
@@ -294,7 +296,7 @@ bool Processor::init()
 
 	// build and compile our shader program
 	// ------------------------------------
-	shader = std::make_shared<Shader>("shader.vs", "shader.fs"); // you can name your shader files however you like
+	shader = std::make_shared<Shader>(path + "shader.vs", path + "shader.fs"); // you can name your shader files however you like
 
 	glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -302,12 +304,6 @@ bool Processor::init()
 	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 	// glBindVertexArray(0);
 	glViewport(0, 0, width, height);
-
-	frameBuffer = std::make_shared<FrameBufferIn>(30000, nParticles, 5, positionFiles);
-	frameBuffer->start();
-
-	spdlog::info("Buffering for 2 seconds");
-	std::this_thread::sleep_for(std::chrono::seconds(5));
 }
 
 void Processor::handleInput()

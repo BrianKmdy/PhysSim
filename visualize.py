@@ -116,7 +116,7 @@ class Replayer:
         if self.draw_frame():
             print('Frame: %d' % self.simulationFrame)
 
-            self.frame += 50
+            self.frame += 1
             self.canvas.after(10, self.update)
         else:
             sys.exit(0)

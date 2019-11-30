@@ -45,9 +45,12 @@ public:
 		alive(true),
 		bufferIndex(0),
 		frameIndex(0),
-		stepSize(stepSize)
+		stepSize(stepSize),
+		nParticles(nParticles)
 	{
 		framePool.reserve(queueSize);
+		for (int i = 0; i < queueSize; i++)
+			framePool.push_back(std::shared_ptr<T[]>(new T[nParticles]));
 	}
 
 	virtual ~FrameBuffer()
@@ -81,7 +84,7 @@ public:
 		}
 	}
 
-	virtual void nextFrame(std::shared_ptr<T>* frame) = 0;
+	virtual void nextFrame(std::shared_ptr<T[]>* frame) = 0;
 	virtual void run() = 0;
 
 protected:
@@ -91,7 +94,8 @@ protected:
 	int frameIndex;
 	int bufferIndex;
 	int stepSize;
+	int nParticles;
 
-	std::map<int, std::shared_ptr<T>> frames;
-	std::vector<std::shared_ptr<T>> framePool;
+	std::map<int, std::shared_ptr<T[]>> frames;
+	std::vector<std::shared_ptr<T[]>> framePool;
 };

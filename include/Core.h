@@ -29,31 +29,32 @@
 
 #include "Simulate.cuh"
 #include "Operations.cuh"
+#include "Types.h"
 
-class Writer
+class FrameBufferOut : public FrameBuffer<Particle>
 {
 public:
-	Writer();
-	
-private:
+	FrameBufferOut(int queueSize, int nParticles, int stepSize);
 
+	virtual void nextFrame(std::shared_ptr<Particle[]>* frame);
+	virtual void run();
 };
 
 class Core
 {
 public:
 	Core();
-    Core(Instance* instance, Particle* particles, Box* boxes);
+    Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes);
 	~Core();
 
 	void verifyConfiguration();
 
-	Instance* getInstance();
-	Particle* getParticles();
-	Box* getBoxes();
-	void setInstance(Instance* instance);
-	void setParticles(Particle* particles);
-	void setBoxes(Box* boxes);
+	std::shared_ptr<Instance> getInstance();
+	std::shared_ptr<Particle[]> getParticles();
+	std::shared_ptr<Box[]> getBoxes();
+	void setInstance(std::shared_ptr<Instance> instance);
+	void setParticles(std::shared_ptr<Particle[]> particles);
+	void setBoxes(std::shared_ptr<Box[]> boxes);
 
 	void setFramesPerPosition(int framesPerPosition);
 	void setFramesPerState(int framesPerState);
@@ -70,12 +71,14 @@ private:
 
 	volatile bool alive;
 
-	Instance* instance;
-	Particle* particles;
-	Box* boxes;
+	std::shared_ptr<Instance> instance;
+	std::shared_ptr<Particle[]> particles;
+	std::shared_ptr<Box[]> boxes;
 
 	int framesPerPosition;
 	int framesPerState;
+
+	std::shared_ptr<FrameBufferOut> frameBuffer;
 
 	int kernel;
 	std::string kernelName;

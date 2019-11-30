@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
 
 	// Run the post processor
 	Processor processor;
-	if (processor.init()) {
+	if (processor.init(std::filesystem::path(argv[0]).remove_filename().string())) {
 		processor.run();
 		processor.shutdown();
 	}

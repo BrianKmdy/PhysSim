@@ -35,9 +35,9 @@ void dumpState(std::string name)
 {
 	YAML::Node data;
 
-	Instance* instance = gCore.getInstance();
-	Particle* particles = gCore.getParticles();
-	Box* boxes = gCore.getBoxes();
+	std::shared_ptr<Instance> instance = gCore.getInstance();
+	std::shared_ptr<Particle[]> particles = gCore.getParticles();
+	std::shared_ptr<Box[]> boxes = gCore.getBoxes();
 
 	data["nBoxes"] = instance->nBoxes;
 	for (int i = 0; i < instance->nBoxes; i++) {
@@ -60,12 +60,12 @@ void dumpState(std::string name)
 	fout << data;
 }
 
-Instance* loadInstance()
+std::shared_ptr<Instance> loadInstance()
 {
 	spdlog::info("Initializing instance");
 
 	// Create the instance for this simulation
-	Instance* instance = new Instance;
+	std::shared_ptr<Instance> instance = std::make_shared<Instance>();
 
 	// Set the world configuration
 	instance->dimensions = gConfig["dimensions"].as<int>();
@@ -86,7 +86,7 @@ Instance* loadInstance()
 	return instance;
 }
 
-Particle* loadParticles(Instance* instance)
+std::shared_ptr<Particle[]> loadParticles(std::shared_ptr<Instance> instance)
 {
 	spdlog::info("Initializing particles");
 
@@ -95,7 +95,7 @@ Particle* loadParticles(Instance* instance)
 	std::mt19937 mt(rd());
 
 	// Create the particles
-	Particle* particles = new Particle[instance->nParticles];
+	std::shared_ptr<Particle[]> particles = std::shared_ptr<Particle[]>(new Particle[instance->nParticles]);
 
 	// Initialize the particles based on the config
 	int pIndex = 0;
@@ -124,13 +124,13 @@ Particle* loadParticles(Instance* instance)
 	return particles;
 }
 
-Box* loadBoxes(Instance* instance)
+std::shared_ptr<Box[]> loadBoxes(std::shared_ptr<Instance> instance)
 {
 	spdlog::info("Initializing boxes");
 
 	// Initialize the boxes
-	Box* boxes = new Box[instance->nBoxes];
-	memset(boxes, 0, instance->nBoxes * sizeof(Box));
+	std::shared_ptr<Box[]> boxes = std::shared_ptr<Box[]>(new Box[instance->nBoxes]);
+	memset(boxes.get(), 0, instance->nBoxes * sizeof(Box));
 
 	return boxes;
 }
@@ -151,16 +151,16 @@ void loadConfig()
 		gCore.setFramesPerState(gConfig["framesPerState"].as<int>());
 
 	// Load the instance
-	Instance* instance = loadInstance();
+	std::shared_ptr<Instance> instance = loadInstance();
 	gCore.setInstance(instance);
 	gCore.verifyConfiguration();
 
 	// Load the particles
-	Particle* particles = loadParticles(instance);
+	std::shared_ptr<Particle[]> particles = loadParticles(instance);
 	gCore.setParticles(particles);
 
 	// Load the boxes
-	Box* boxes = loadBoxes(instance);
+	std::shared_ptr<Box[]> boxes = loadBoxes(instance);
 	gCore.setBoxes(boxes);
 }
 
@@ -205,7 +205,7 @@ int main()
 		saveConfig();
 	}
 	catch (std::exception& e) {
-		spdlog::error("Error intializing simulation: {}", e.what());
+		spdlog::error("Error initializing simulation: {}", e.what());
 
 		return -1;
 	}
