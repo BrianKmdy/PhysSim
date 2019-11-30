@@ -178,19 +178,19 @@ __host__ __device__ void Particle::enforceBoundary(float maxBoundary)
 {
 	//// XXX/bmoody Review this, there must be a better way
 	if (position.x < -maxBoundary) {
-		position.x = -maxBoundary;
+		position.x = -maxBoundary + 1.0;
 		velocity.x = 0.0;
 	}
 	if (position.x > maxBoundary) {
-		position.x = maxBoundary - 1;
+		position.x = maxBoundary - 1.0;
 		velocity.x = 0.0;
 	}
 	if (position.y < -maxBoundary) {
-		position.y = -maxBoundary;
+		position.y = -maxBoundary + 1.0;
 		velocity.y = 0.0;
 	}
 	if (position.y > maxBoundary) {
-		position.y = maxBoundary - 1;
+		position.y = maxBoundary - 1.0;
 		velocity.y = 0.0;
 	}
 }

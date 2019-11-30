@@ -19,7 +19,7 @@ data_regex = re.compile('position-([0-9]+)\.dat')
 image_regex = re.compile('position-([0-9]+)\.png')
 
 wDimensions = 1200
-framesPerWrite = 1
+framesPerWrite = 1000
 nThreads = 8
 
 def getNParticles(config):

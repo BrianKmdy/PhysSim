@@ -1,4 +1,5 @@
 #include "Types.h"
+#include "Paths.h"
 
 std::map <std::string, int> Kernel::fromString = {
 	   {"gravity", Kernel::gravity},

@@ -31,6 +31,9 @@
 #include "Operations.cuh"
 #include "Types.h"
 
+void dumpParticles(std::string name, int nParticles, Particle* particles);
+void dumpBoxes(std::string name, int nBoxes, Box* boxes);
+
 class FrameBufferOut : public FrameBuffer<Particle>
 {
 public:

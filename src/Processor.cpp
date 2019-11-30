@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <algorithm>
 
 #include "Paths.h"
 #include "Types.h"
@@ -22,8 +23,6 @@ YAML::Node gConfig;
 std::map<int, std::string> positionFiles;
 
 int nParticles;
-
-int frame = 0;
 
 float worldSize = 131072.0f;
 float renderWorldSize = 100.0f;
@@ -147,6 +146,7 @@ void Shader::checkCompileErrors(unsigned int shader, std::string type)
 
 FrameBufferIn::FrameBufferIn(int queueSize, int nParticles, int stepSize, std::map<int, std::string> files):
 	FrameBuffer<glm::vec3>(queueSize, nParticles, stepSize),
+	stepSize(stepSize),
 	files(files)
 {
 }
@@ -175,14 +175,21 @@ void FrameBufferIn::run()
 
 	while (alive) {
 		// As the frame index moves forward we can pop frames off to re-use them in the frame pool
-		if (frames.begin()->first < frameIndex - 1) {
-			framePool.push_back(frames.begin()->second);
-			frames.erase(frames.begin());
+		for (auto it = frames.begin(); it != frames.end();) {
+			if (it->first + 2 * stepSize < frameIndex) {
+				framePool.push_back(it->second);
+				it = frames.erase(it);
+			}
+			else
+			{
+				break;
+			}
 		}
 
 		// If we have frames available to load and space in the pool then load the next frame
 		if (hasMoreFrames() && !framePool.empty()) {
 			try {
+				// spdlog::info("Loading file {}", files[bufferIndex]);
 				std::ifstream positionFile(files[bufferIndex], std::ios_base::in | std::ios_base::binary);
 				glm::vec3* positions = &framePool.back()[0];
 
@@ -210,9 +217,14 @@ void FrameBufferIn::run()
 
 Processor::Processor():
 	alive(true),
+	frame(0),
 	currentFrame(nullptr),
+	nextFrame(nullptr),
 	shader(nullptr),
-	frameBuffer(nullptr)
+	frameBuffer(nullptr),
+	VBOCurrent(0),
+    VBONext(0),
+    VAO(0)
 {
 }
 
@@ -239,7 +251,7 @@ bool Processor::init(std::string path)
 	}
 
 	// Start the frame buffer
-	frameBuffer = std::make_shared<FrameBufferIn>(30000, nParticles, 5, positionFiles);
+	frameBuffer = std::make_shared<FrameBufferIn>(10000, nParticles, 50, positionFiles);
 	frameBuffer->start();
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
@@ -250,7 +262,7 @@ bool Processor::init(std::string path)
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	//SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
@@ -263,8 +275,8 @@ bool Processor::init(std::string path)
 		return false;
 	}
 
-	SDL_SetWindowFullscreen(m_pCompanionWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
-	SDL_GetWindowSize(m_pCompanionWindow, &width, &height);
+	// SDL_SetWindowFullscreen(m_pCompanionWindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	// SDL_GetWindowSize(m_pCompanionWindow, &width, &height);
 
 	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
 	if (m_pContext == NULL)
@@ -299,7 +311,8 @@ bool Processor::init(std::string path)
 	shader = std::make_shared<Shader>(path + "shader.vs", path + "shader.fs"); // you can name your shader files however you like
 
 	glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &VBOCurrent);
+	glGenBuffers(1, &VBONext);
 	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
 	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 	// glBindVertexArray(0);
@@ -325,49 +338,70 @@ void Processor::run()
 {
 	spdlog::info("Running: {} positions", positionFiles.size());
 
+	while (!frameBuffer->hasFramesBuffered()) {
+		spdlog::info("Waiting for first frame");
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+
+	// Get the first frame
+	frameBuffer->nextFrame(&nextFrame);
+
 	while (alive && (frameBuffer->hasFramesBuffered() || frameBuffer->hasMoreFrames())) {
 		handleInput();
 
-		if (frameBuffer->hasFramesBuffered()) {
-			frameBuffer->nextFrame(&currentFrame);
-			if (currentFrame)
-				refresh();
+		if (frameBuffer->hasFramesBuffered() && frame >= frameBuffer->stepSize) {
+			currentFrame = nextFrame;
+			frameBuffer->nextFrame(&nextFrame);
+			update();
+			frame = 0;
 		}
-		else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
-		}
+
+		if (currentFrame && nextFrame)
+			refresh();
+
+		frame++;
 	}
 }
 
-void Processor::refresh()
+void Processor::update()
 {
 	glBindVertexArray(VAO);
 
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBOCurrent);
 	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(glm::vec3), currentFrame.get(), GL_STATIC_DRAW);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*) 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBONext);
+	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(glm::vec3), nextFrame.get(), GL_STATIC_DRAW);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+	glEnableVertexAttribArray(1);
 
 	// Set up the view matrix
 	glm::vec3 eye(0., 0., 1000.0f);
 	glm::vec3 look(0., 0., 0.);
 	glm::vec3 up(0, 1., 0.);
 
-	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize));
+	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize * 0.5));
 	glm::mat4 view = glm::lookAt(eye, look, up);
-	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float) width / (float) height, 10.0f, 10000.0f);
-	
-	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	// Set the shader
-	shader->use();
+	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
 
 	// XXX/bmoody Don't have to set these every frame
 	shader->setMatrix("model", model);
 	shader->setMatrix("view", view);
 	shader->setMatrix("projection", projection);
+}
+
+void Processor::refresh()
+{
+	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	// Set the shader
+	shader->use();
+	shader->setFloat("time", std::min((float) (frame % frameBuffer->stepSize) / (float) frameBuffer->stepSize, 1.0f));
 
 	// Draw the vertices
 	glBindVertexArray(VAO);
@@ -385,7 +419,8 @@ void Processor::shutdown()
 	// optional: de-allocate all resources once they've outlived their purpose:
 // ------------------------------------------------------------------------
 	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &VBOCurrent);
+	glDeleteBuffers(1, &VBONext);
 
 	if (m_pCompanionWindow)
 	{

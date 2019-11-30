@@ -87,7 +87,6 @@ public:
 	virtual void nextFrame(std::shared_ptr<T[]>* frame) = 0;
 	virtual void run() = 0;
 
-protected:
 	std::shared_ptr<std::thread> thread;
 	bool alive;
 

@@ -12,6 +12,8 @@ const static constexpr int nThreads = 512;
 
 struct Particle
 {
+	int id;
+
 	float2 position;
 	float2 velocity;
 	float2 force;

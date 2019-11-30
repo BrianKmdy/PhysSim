@@ -6,6 +6,40 @@
 #include "Core.h"
 #include "Paths.h"
 
+void dumpParticles(std::string name, int nParticles, Particle* particles)
+{
+	YAML::Node data;
+
+	data["nParticles"] = nParticles;
+	for (int i = 0; i < nParticles; i++) {
+		data["particles"][i]["id"] = particles[i].id;
+		data["particles"][i]["mass"] = particles[i].mass;
+		data["particles"][i]["x"] = particles[i].position.x;
+		data["particles"][i]["y"] = particles[i].position.y;
+		data["particles"][i]["boxId"] = particles[i].boxId;
+	}
+
+	std::ofstream fout(OutputDirectory / name);
+	fout << data;
+}
+
+void dumpBoxes(std::string name, int nBoxes, Box* boxes)
+{
+	YAML::Node data;
+
+	data["nBoxes"] = nBoxes;
+	for (int i = 0; i < nBoxes; i++) {
+		data["boxes"][i]["mass"] = boxes[i].mass;
+		data["boxes"][i]["mass x"] = boxes[i].centerMass.x;
+		data["boxes"][i]["mass y"] = boxes[i].centerMass.y;
+		data["boxes"][i]["nParticles"] = boxes[i].nParticles;
+		data["boxes"][i]["particleOffset"] = boxes[i].particleOffset;
+	}
+
+	std::ofstream fout(OutputDirectory / name);
+	fout << data;
+}
+
 FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int stepSize):
 	FrameBuffer<Particle>(queueSize, nParticles, stepSize)
 {
@@ -13,12 +47,12 @@ FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int stepSize):
 
 void FrameBufferOut::nextFrame(std::shared_ptr<Particle[]>* frame)
 {
-	while (framePool.empty() && frameIndex == frames.begin()->first) {
+	while (framePool.empty() && frameIndex <= frames.begin()->first) {
 		spdlog::warn("Waiting for a free buffer frame");
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 
-	while (frameIndex > frames.begin()->first) {
+	while (!frames.empty() && frameIndex > frames.begin()->first) {
 		framePool.push_back(frames.begin()->second);
 		frames.erase(frames.begin()->first);
 	}
@@ -37,12 +71,18 @@ void FrameBufferOut::run()
 		// If we have frames available to load and space in the pool then load the next frame
 		if (hasFramesBuffered()) {
 			try {
-				std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
-
+				// Grab the frame and sort by particle id
 				auto frame = frames[frameIndex];
+				std::sort(frame.get(), frame.get() + nParticles,
+					[](const Particle& a, const Particle& b) {
+					return a.id < b.id;
+				});
+
+				// Write the position data to file
+				// dumpParticles(("position-" + std::to_string(frameIndex) + ".yaml"), nParticles, frame.get());
+				std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
 				for (int i = 0; i < nParticles; i++)
 					positionToFile(&file, &frame[i].position.x, &frame[i].position.y);
-
 				file.close();
 
 				frameIndex += stepSize;
@@ -258,7 +298,7 @@ std::chrono::milliseconds Core::writeToDisk()
 
 void Core::run()
 {
-	frameBuffer = std::make_shared<FrameBufferOut>(30000, instance->nParticles, 5);
+	frameBuffer = std::make_shared<FrameBufferOut>(10000, instance->nParticles, 1);
 	frameBuffer->start();
 
 	startTime = getMilliseconds();
@@ -276,7 +316,8 @@ void Core::run()
 		// Write the results to disk
 		auto writeTime = writeToDisk();
 
-		spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
+		if (frame % 100 == 0)
+			spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
 		frameTime = getMilliseconds();
 		frame++;
 	}

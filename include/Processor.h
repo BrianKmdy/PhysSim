@@ -32,6 +32,8 @@ class FrameBufferIn : public FrameBuffer<glm::vec3>
 public:
 	FrameBufferIn(int queueSize, int nParticles, int stepSize, std::map<int, std::string> files);
 
+	int stepSize;
+
 	bool hasMoreFrames();
 
 	virtual void nextFrame(std::shared_ptr<glm::vec3[]>* frame);
@@ -52,15 +54,20 @@ public:
 
 private:
 	void handleInput();
+	void update();
 	void refresh();
 
 	bool alive;
 
+	int frame;
+
 	std::shared_ptr<glm::vec3[]> currentFrame;
+	std::shared_ptr<glm::vec3[]> nextFrame;
 
 	std::shared_ptr<Shader> shader;
 	std::shared_ptr<FrameBufferIn> frameBuffer;
 
-	unsigned int VBO = 0;
-	unsigned int VAO = 0;
+	unsigned int VBOCurrent;
+	unsigned int VBONext;
+	unsigned int VAO;
 };

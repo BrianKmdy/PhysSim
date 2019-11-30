@@ -31,35 +31,6 @@ void signalHandler(int signum) {
 	gCore.kill();
 }
 
-void dumpState(std::string name)
-{
-	YAML::Node data;
-
-	std::shared_ptr<Instance> instance = gCore.getInstance();
-	std::shared_ptr<Particle[]> particles = gCore.getParticles();
-	std::shared_ptr<Box[]> boxes = gCore.getBoxes();
-
-	data["nBoxes"] = instance->nBoxes;
-	for (int i = 0; i < instance->nBoxes; i++) {
-		data["boxes"][i]["mass"] = boxes[i].mass;
-		data["boxes"][i]["mass x"] = boxes[i].centerMass.x;
-		data["boxes"][i]["mass y"] = boxes[i].centerMass.y;
-		data["boxes"][i]["nParticles"] = boxes[i].nParticles;
-		data["boxes"][i]["particleOffset"] = boxes[i].particleOffset;
-	}
-
-	data["nParticles"] = instance->nParticles;
-	for (int i = 0; i < instance->nParticles; i++) {
-		data["particles"][i]["mass"] = particles[i].mass;
-		data["particles"][i]["x"] = particles[i].position.x;
-		data["particles"][i]["y"] = particles[i].position.y;
-		data["particles"][i]["boxId"] = particles[i].boxId;
-	}
-
-	std::ofstream fout(ConfigFilePath);
-	fout << data;
-}
-
 std::shared_ptr<Instance> loadInstance()
 {
 	spdlog::info("Initializing instance");
@@ -98,26 +69,28 @@ std::shared_ptr<Particle[]> loadParticles(std::shared_ptr<Instance> instance)
 	std::shared_ptr<Particle[]> particles = std::shared_ptr<Particle[]>(new Particle[instance->nParticles]);
 
 	// Initialize the particles based on the config
-	int pIndex = 0;
+	int pId = 0;
 	for (auto it = gConfig["particles"].begin(); it != gConfig["particles"].end(); ++it) {
 		YAML::Node node = *it;
 		if (node["n"].IsDefined()) {
 			float length = node["length"].as<float>();
 			std::uniform_real_distribution<float> dist(-length / 2, length / 2);
 			for (int i = 0; i < node["n"].as<int>(); i++) {
-				particles[pIndex].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
-				particles[pIndex].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
-				particles[pIndex].mass = node["mass"].as<float>();
+				particles[pId].id = pId;
+				particles[pId].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
+				particles[pId].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+				particles[pId].mass = node["mass"].as<float>();
 
-				pIndex++;
+				pId++;
 			}
 		}
 		else {
-			particles[pIndex].position = make_float2(node["x"].as<float>(), node["y"].as<float>());
-			particles[pIndex].mass = node["mass"].as<float>();
-			particles[pIndex].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
+			particles[pId].id = pId;
+			particles[pId].position = make_float2(node["x"].as<float>(), node["y"].as<float>());
+			particles[pId].mass = node["mass"].as<float>();
+			particles[pId].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
 
-			pIndex++;
+			pId++;
 		}
 	}
 
