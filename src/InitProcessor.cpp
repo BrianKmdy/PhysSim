@@ -8,13 +8,19 @@
 
 int main(int argc, char* argv[])
 {
+	std::filesystem::path sceneDirectory = OutputDirectory;
+
 	// Parse command line arguments
 	try {
 		cxxopts::Options options(argv[0], "Post processing and visualization of particle physics simulations");
 		options
+			.allow_unrecognised_options()
 			.add_options()
 			("help", "Print help")
-			("s, show", "Play back the simulation in real time");
+			("s, show", "Play back the simulation in real time")
+			("scene", "Path of the scene to load", cxxopts::value<std::string>());
+
+		options.parse_positional({ "scene" });
 
 		auto result = options.parse(argc, argv);
 
@@ -22,15 +28,18 @@ int main(int argc, char* argv[])
 			std::cout << options.help() << std::endl;
 			exit(0);
 		}
+
+		if (result.count("scene"))
+			sceneDirectory = std::filesystem::path(result["scene"].as<std::string>());
 	}
 	catch (const cxxopts::OptionException& e) {
-		std::cout << "Error parsing arguments: " << e.what() << std::endl;
+		spdlog::error("Error parsing arguments: {}", e.what());
 		exit(1);
 	}
 
 	// Run the post processor
 	Processor processor;
-	if (processor.init(std::filesystem::path(argv[0]).remove_filename().string())) {
+	if (processor.init(std::filesystem::path(argv[0]).remove_filename(), sceneDirectory)) {
 		processor.run();
 		processor.shutdown();
 	}

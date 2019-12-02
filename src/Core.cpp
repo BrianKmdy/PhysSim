@@ -78,12 +78,14 @@ void FrameBufferOut::run()
 					return a.id < b.id;
 				});
 
-				// Write the position data to file
-				// dumpParticles(("position-" + std::to_string(frameIndex) + ".yaml"), nParticles, frame.get());
-				std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
-				for (int i = 0; i < nParticles; i++)
-					positionToFile(&file, &frame[i].position.x, &frame[i].position.y);
-				file.close();
+				if (frameIndex % 25 == 0) {
+					// Write the position data to file
+					// dumpParticles(("position-" + std::to_string(frameIndex) + ".yaml"), nParticles, frame.get());
+					std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
+					for (int i = 0; i < nParticles; i++)
+						positionToFile(&file, &frame[i].position.x, &frame[i].position.y);
+					file.close();
+				}
 
 				frameIndex += stepSize;
 			}
@@ -298,7 +300,7 @@ std::chrono::milliseconds Core::writeToDisk()
 
 void Core::run()
 {
-	frameBuffer = std::make_shared<FrameBufferOut>(10000, instance->nParticles, 1);
+	frameBuffer = std::make_shared<FrameBufferOut>(100, instance->nParticles, 1);
 	frameBuffer->start();
 
 	startTime = getMilliseconds();
@@ -316,8 +318,7 @@ void Core::run()
 		// Write the results to disk
 		auto writeTime = writeToDisk();
 
-		if (frame % 100 == 0)
-			spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
+		spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
 		frameTime = getMilliseconds();
 		frame++;
 	}

@@ -15,7 +15,7 @@ class Shader
 public:
 	unsigned int ID;
 
-	Shader(std::string vertexPath, std::string fragmentPath);
+	Shader(std::filesystem::path vertexPath, std::filesystem::path fragmentPath);
 
 	void use();
 
@@ -48,7 +48,7 @@ class Processor
 public:
 	Processor();
 
-	bool init(std::string path);
+	bool init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory);
 	void run();
 	void shutdown();
 

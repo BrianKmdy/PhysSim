@@ -35,7 +35,7 @@ void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severi
 // XXX/bmoody Need to add handling of keyframes, preloading position data into a circular queue, and interpolating between keyframes
 // XXX/bmoody Also need to add saving directly to images
 
-Shader::Shader(std::string vertexPath, std::string fragmentPath)
+Shader::Shader(std::filesystem::path vertexPath, std::filesystem::path fragmentPath)
 {
 	// 1. retrieve the vertex/fragment source code from filePath
 	std::string vertexCode;
@@ -153,7 +153,7 @@ FrameBufferIn::FrameBufferIn(int queueSize, int nParticles, int stepSize, std::m
 
 bool FrameBufferIn::hasMoreFrames()
 {
-	return bufferIndex < files.size();
+	return bufferIndex < files.size() * stepSize;
 }
 
  void FrameBufferIn::nextFrame(std::shared_ptr<glm::vec3[]>* frame)
@@ -228,18 +228,21 @@ Processor::Processor():
 {
 }
 
-bool Processor::init(std::string path)
+bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory)
 {
+	std::filesystem::path positionDirectory = sceneDirectory / PositionDirectoryName;
+	std::filesystem::path configPath = sceneDirectory / ConfigFileName;
+
 	spdlog::info("Loading configuration");
-	if (std::filesystem::exists(OutputConfigFilePath) && std::filesystem::exists(PositionDataDirectory)) {
-		gConfig = YAML::LoadFile(OutputConfigFilePath.string());
+	if (std::filesystem::exists(configPath) && std::filesystem::exists(positionDirectory)) {
+		gConfig = YAML::LoadFile(configPath.string());
 		nParticles = getNParticles(&gConfig);
 		spdlog::info("nParticles: {}", nParticles);
 
 		points = new glm::vec3[nParticles];
 		memset(points, 0, nParticles * sizeof(glm::vec3));
 
-		for (auto& path : std::filesystem::directory_iterator(PositionDataDirectory)) {
+		for (auto& path : std::filesystem::directory_iterator(positionDirectory)) {
 			std::string stringPath = path.path().string();
 			positionFiles[std::stoi(stringPath.substr(stringPath.find('-') + 1, stringPath.find('.')))] = stringPath;
 		}
@@ -251,7 +254,7 @@ bool Processor::init(std::string path)
 	}
 
 	// Start the frame buffer
-	frameBuffer = std::make_shared<FrameBufferIn>(10000, nParticles, 50, positionFiles);
+	frameBuffer = std::make_shared<FrameBufferIn>(1000, nParticles, 25, positionFiles);
 	frameBuffer->start();
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
@@ -308,7 +311,7 @@ bool Processor::init(std::string path)
 
 	// build and compile our shader program
 	// ------------------------------------
-	shader = std::make_shared<Shader>(path + "shader.vs", path + "shader.fs"); // you can name your shader files however you like
+	shader = std::make_shared<Shader>(shaderPath / "shader.vs", shaderPath / "shader.fs"); // you can name your shader files however you like
 
 	glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBOCurrent);
@@ -317,6 +320,9 @@ bool Processor::init(std::string path)
 	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 	// glBindVertexArray(0);
 	glViewport(0, 0, width, height);
+
+	// glEnable(GL_ALPHA_TEST);
+	// glAlphaFunc(GL_EQUAL, 1.0);
 }
 
 void Processor::handleInput()
@@ -396,8 +402,11 @@ void Processor::update()
 
 void Processor::refresh()
 {
-	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(0.8f, 0.0f, 0.0f, 0.3f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	// Set the shader
 	shader->use();
@@ -405,7 +414,7 @@ void Processor::refresh()
 
 	// Draw the vertices
 	glBindVertexArray(VAO);
-	glPointSize(1.5f);
+	glPointSize(3.0f);
 	glDrawArrays(GL_POINTS, 0, nParticles);
 
 	// SwapWindow
