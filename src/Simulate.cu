@@ -104,9 +104,14 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 	}
 	auto kernelEndTime = getMilliseconds();
 
+	// const float aMax = 0.1f;
 	// Calculate each particle's new position and velocity based on its force for this frame
 	for (int i = 0; i < instance->nParticles; i++) {
 		float2 acceleration = particles[i].force / particles[i].mass;
+
+		// Add an acceleration limit to make sure things don't get out of control
+		// if (magnitude(acceleration) > aMax)
+		// 	acceleration = acceleration / (magnitude(acceleration) / aMax);
 
 		particles[i].position += (particles[i].velocity * instance->timeStep) + (0.5 * acceleration * powf(instance->timeStep, 2.0));
 		particles[i].velocity += acceleration * instance->timeStep;
@@ -123,7 +128,7 @@ __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instanc
 
 	for (int i = index; i < endIndex; i += stride) {
 	 	for (int o = 0; o < instance.nBoxes; o++) {
-			if (o == particles[i].boxId) {
+			if (instance.adjacentBoxes(particles[i].boxId, o)) {
 				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
 					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
 					float dist = distance(particles[i].position, particles[p].position);
@@ -149,7 +154,7 @@ __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, In
 
 	for (int i = index; i < endIndex; i += stride) {
 		for (int o = 0; o < instance.nBoxes; o++) {
-			if (o == particles[i].boxId) {
+			if (instance.adjacentBoxes(particles[i].boxId, o)) {
 				for (int p = boxes[o].particleOffset; p < boxes[o].particleOffset + boxes[o].nParticles; p++) {
 					// XXX/bmoody Can review making this more efficient, is it necessary to square/sqrt dist so much?
 					float dist = distance(particles[i].position, particles[p].position);
@@ -172,6 +177,18 @@ __host__ __device__ int Instance::getBoxIndex(float2 position)
 	int2 index = (position + (dimensions / 2)) / boxSize;
 
 	return index.x * divisions + index.y;
+}
+
+__host__ __device__ bool Instance::adjacentBoxes(int boxId1, int boxId2)
+{
+	int2 boxPosition1 = make_int2(boxId1 / divisions, boxId1 % divisions);
+	int2 boxPosition2 = make_int2(boxId2 / divisions, boxId2 % divisions);
+
+	int2 positiveDifference = abs(boxPosition2 - boxPosition1);
+	if (positiveDifference.x <= 1 && positiveDifference.y <= 1)
+		return true;
+	else
+		return false;
 }
 
 __host__ __device__ void Particle::enforceBoundary(float maxBoundary)

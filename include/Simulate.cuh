@@ -60,6 +60,7 @@ struct Instance
 	}
 
 	__host__ __device__ int getBoxIndex(float2 position);
+	__host__ __device__ bool adjacentBoxes(int boxId1, int boxId2);
 };
 
 // XXX/bmoody Can move all of this into a class

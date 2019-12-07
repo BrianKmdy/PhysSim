@@ -4,6 +4,7 @@
 #include <map>
 #include <chrono>
 #include <thread>
+#include <mutex>
 
 #include "yaml-cpp/yaml.h"
 
@@ -46,7 +47,10 @@ public:
 		bufferIndex(0),
 		frameIndex(0),
 		stepSize(stepSize),
-		nParticles(nParticles)
+		nParticles(nParticles),
+		mutex(),
+		frames(),
+		framePool()
 	{
 		framePool.reserve(queueSize);
 		for (int i = 0; i < queueSize; i++)
@@ -84,6 +88,10 @@ public:
 		}
 	}
 
+	void reset() {
+		frameIndex = 0;
+	}
+
 	virtual void nextFrame(std::shared_ptr<T[]>* frame) = 0;
 	virtual void run() = 0;
 
@@ -94,6 +102,8 @@ public:
 	int bufferIndex;
 	int stepSize;
 	int nParticles;
+
+	std::mutex mutex;
 
 	std::map<int, std::shared_ptr<T[]>> frames;
 	std::vector<std::shared_ptr<T[]>> framePool;

@@ -47,15 +47,12 @@ FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int stepSize):
 
 void FrameBufferOut::nextFrame(std::shared_ptr<Particle[]>* frame)
 {
-	while (framePool.empty() && frameIndex <= frames.begin()->first) {
+	while (framePool.empty()) {
 		spdlog::warn("Waiting for a free buffer frame");
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 
-	while (!frames.empty() && frameIndex > frames.begin()->first) {
-		framePool.push_back(frames.begin()->second);
-		frames.erase(frames.begin()->first);
-	}
+	std::scoped_lock lock(mutex);
 
 	memcpy(framePool.back().get(), frame->get(), nParticles * sizeof(Particle));
 	frames[bufferIndex] = framePool.back();
@@ -68,11 +65,26 @@ void FrameBufferOut::run()
 	spdlog::info("Framebuffer thread starting up");
 
 	while (alive) {
+		std::shared_ptr<Particle[]> frame = nullptr;
+
+		{
+			std::scoped_lock lock(mutex);
+
+			while (!frames.empty() && frameIndex > frames.begin()->first) {
+				framePool.push_back(frames.begin()->second);
+				frames.erase(frames.begin()->first);
+			}
+
+			if (hasFramesBuffered()) {
+				frame = frames[frameIndex];
+				frameIndex += stepSize;
+			}
+		}
+
 		// If we have frames available to load and space in the pool then load the next frame
-		if (hasFramesBuffered()) {
+		if (frame) {
 			try {
 				// Grab the frame and sort by particle id
-				auto frame = frames[frameIndex];
 				std::sort(frame.get(), frame.get() + nParticles,
 					[](const Particle& a, const Particle& b) {
 					return a.id < b.id;
@@ -86,8 +98,6 @@ void FrameBufferOut::run()
 						positionToFile(&file, &frame[i].position.x, &frame[i].position.y);
 					file.close();
 				}
-
-				frameIndex += stepSize;
 			}
 			catch (std::exception e) {
 				spdlog::error("Unable to read frame {} from file", bufferIndex);

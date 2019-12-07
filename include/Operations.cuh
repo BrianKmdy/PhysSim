@@ -17,6 +17,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 
 __host__ __device__ float2 direction(float2 a, float2 b);
 __host__ __device__ float distance(float2 a, float2 b);
+__host__ __device__ float magnitude(float2 a);
 
 __host__ __device__ int2 operator+(const int2& a, const int2& b);
 __host__ __device__ int2 operator-(const int2& a, const int2& b);
@@ -54,3 +55,5 @@ __host__ __device__ float3 operator+(const float3& a, const float3& b);
 __host__ __device__ float3 operator-(const float3& a, const float3& b);
 __host__ __device__ float3 operator*(const float3& a, const float3& b);
 __host__ __device__ float3 operator/(const float3& a, const float3& b);
+
+__host__ __device__ int2 abs(const int2& a);

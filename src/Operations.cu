@@ -12,7 +12,10 @@ __host__ __device__ float distance(float2 a, float2 b)
 	return sqrtf(powf(b.x - a.x, 2.0) + powf(b.y - a.y, 2.0));
 }
 
-
+__host__ __device__ float magnitude(float2 a)
+{
+	return sqrtf(powf(a.x, 2.0) + powf(a.y, 2.0));
+}
 
 // int2 int2
 __host__ __device__ int2 operator+(const int2& a, const int2& b) {
@@ -142,3 +145,8 @@ __host__ __device__ float3 operator/(const float3& a, const float3& b) {
 	return make_float3(a.x / b.x, a.y / b.y, a.z / b.z);
 }
 
+// Absolute value
+__host__ __device__ int2 abs(const int2& a)
+{
+	return make_int2(abs(a.x), abs(a.y));
+}

@@ -46,7 +46,7 @@ private:
 class Processor
 {
 public:
-	Processor();
+	Processor(int frameStep, float speed);
 
 	bool init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory);
 	void run();
@@ -54,10 +54,15 @@ public:
 
 private:
 	void handleInput();
+	void reset();
 	void update();
 	void refresh();
 
 	bool alive;
+
+	int frameStep;
+	int interFrames;
+	int bufferSize;
 
 	int frame;
 

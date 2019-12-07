@@ -9,9 +9,11 @@
 #include "GL/glew.h"
 #include "gl/gl.h"
 
+const unsigned long long MAX_MEMORY = 10ULL * 1000ULL * 1000ULL * 1000ULL;
+
 SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
-bool m_bVblank = false;
+bool m_bVblank = true;
 
 int width = 2560;
 int height = 1440;
@@ -153,7 +155,7 @@ FrameBufferIn::FrameBufferIn(int queueSize, int nParticles, int stepSize, std::m
 
 bool FrameBufferIn::hasMoreFrames()
 {
-	return bufferIndex < files.size() * stepSize;
+	return bufferIndex <= files.rbegin()->first;
 }
 
  void FrameBufferIn::nextFrame(std::shared_ptr<glm::vec3[]>* frame)
@@ -174,17 +176,20 @@ void FrameBufferIn::run()
 	spdlog::info("Framebuffer thread starting up");
 
 	while (alive) {
+		// XXX/bmoody Re-enable this when we reach a point where we can't buffer all the frames at once
 		// As the frame index moves forward we can pop frames off to re-use them in the frame pool
-		for (auto it = frames.begin(); it != frames.end();) {
-			if (it->first + 2 * stepSize < frameIndex) {
-				framePool.push_back(it->second);
-				it = frames.erase(it);
-			}
-			else
-			{
-				break;
-			}
-		}
+		// if (framePool.empty()) {
+		// 	for (auto it = frames.begin(); it != frames.end();) {
+		// 		if (it->first + 2 * stepSize < frameIndex) {
+		// 			framePool.push_back(it->second);
+		// 			it = frames.erase(it);
+		// 		}
+		// 		else
+		// 		{
+		// 			break;
+		// 		}
+		// 	}
+		// }
 
 		// If we have frames available to load and space in the pool then load the next frame
 		if (hasMoreFrames() && !framePool.empty()) {
@@ -215,8 +220,10 @@ void FrameBufferIn::run()
 	spdlog::info("Framebuffer thread shutting down");
 }
 
-Processor::Processor():
+Processor::Processor(int frameStep, float speed):
 	alive(true),
+	frameStep(frameStep),
+	interFrames(frameStep / speed),
 	frame(0),
 	currentFrame(nullptr),
 	nextFrame(nullptr),
@@ -232,6 +239,10 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 {
 	std::filesystem::path positionDirectory = sceneDirectory / PositionDirectoryName;
 	std::filesystem::path configPath = sceneDirectory / ConfigFileName;
+
+	spdlog::info("Parameters");
+	spdlog::info("frameStep: {}", frameStep);
+	spdlog::info("interFrames: {}", interFrames);
 
 	spdlog::info("Loading configuration");
 	if (std::filesystem::exists(configPath) && std::filesystem::exists(positionDirectory)) {
@@ -253,13 +264,41 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 		return false;
 	}
 
+	int fileStep = std::next(positionFiles.begin())->first - positionFiles.begin()->first;
+	if (frameStep < fileStep) {
+		spdlog::error("Frame step must be larger than file step size (frameStep: {}, fileStep: {})", frameStep, fileStep);
+		return false;
+	}
+
+	if (frameStep % fileStep != 0) {
+		spdlog::error("Frame step must be a multiple of file step size (frameStep: {}, fileStep: {})", frameStep, fileStep);
+		return false;
+	}
+
+	// Add 1 for position file 0
+	int bufferSize = positionFiles.size() / (frameStep / fileStep) + 1;
+	unsigned long bufferBytes = bufferSize * nParticles * sizeof(glm::vec3);
+
+	spdlog::info("Buffer size: {}", bufferSize);
+	spdlog::info("Buffer memory: {}mb", static_cast<float>(bufferBytes) / 1000000.0);
+
+	if (bufferBytes > MAX_MEMORY) {
+		spdlog::error("Too many position files, will require allocating {}mb", static_cast<float>(bufferBytes) / 1000000.0);
+		return false;
+	}
+
 	// Start the frame buffer
-	frameBuffer = std::make_shared<FrameBufferIn>(1000, nParticles, 25, positionFiles);
+	frameBuffer = std::make_shared<FrameBufferIn>(bufferSize, nParticles, frameStep, positionFiles);
 	frameBuffer->start();
+
+	while (frameBuffer->bufferSize() < bufferSize) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		spdlog::info("Frames buffered: {}/{}", frameBuffer->bufferSize(), bufferSize);
+	}
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
 	{
-		printf("%s - SDL could not initialize! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		spdlog::error("{} - SDL could not initialize! SDL Error: {}", __FUNCTION__, SDL_GetError());
 		return false;
 	}
 
@@ -274,7 +313,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	m_pCompanionWindow = SDL_CreateWindow("Simulation", 0, 0, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (m_pCompanionWindow == NULL)
 	{
-		printf("%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		spdlog::error("{} - Window could not be created! SDL Error: {}", __FUNCTION__, SDL_GetError());
 		return false;
 	}
 
@@ -284,7 +323,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
 	if (m_pContext == NULL)
 	{
-		printf("%s - OpenGL context could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		spdlog::error("{} - OpenGL context could not be created! SDL Error: {}", __FUNCTION__, SDL_GetError());
 		return false;
 	}
 
@@ -292,7 +331,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	GLenum nGlewError = glewInit();
 	if (nGlewError != GLEW_OK)
 	{
-		printf("%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString(nGlewError));
+		spdlog::error("{} - Error initializing GLEW! {}", __FUNCTION__, glewGetErrorString(nGlewError));
 		return false;
 	}
 	glGetError(); // to clear the error caused deep in GLEW
@@ -303,7 +342,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 
 	if (SDL_GL_SetSwapInterval(m_bVblank ? 1 : 0) < 0)
 	{
-		printf("%s - Warning: Unable to set VSync! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		spdlog::error("{} - Warning: Unable to set VSync! SDL Error: {}", __FUNCTION__, SDL_GetError());
 		return false;
 	}
 
@@ -323,6 +362,8 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 
 	// glEnable(GL_ALPHA_TEST);
 	// glAlphaFunc(GL_EQUAL, 1.0);
+
+	return true;
 }
 
 void Processor::handleInput()
@@ -352,21 +393,36 @@ void Processor::run()
 	// Get the first frame
 	frameBuffer->nextFrame(&nextFrame);
 
-	while (alive && (frameBuffer->hasFramesBuffered() || frameBuffer->hasMoreFrames())) {
+	while (alive) {
 		handleInput();
 
-		if (frameBuffer->hasFramesBuffered() && frame >= frameBuffer->stepSize) {
-			currentFrame = nextFrame;
-			frameBuffer->nextFrame(&nextFrame);
-			update();
-			frame = 0;
+		if (!frameBuffer->hasMoreFrames() && !frameBuffer->hasFramesBuffered()) {
+			reset();
 		}
 
-		if (currentFrame && nextFrame)
-			refresh();
-
-		frame++;
+		if (frame % interFrames == 0) {
+			if (frameBuffer->hasFramesBuffered()) {
+				currentFrame = nextFrame;
+				frameBuffer->nextFrame(&nextFrame);
+				update();
+				refresh();
+				frame++;
+			}
+		}
+		else {
+			if (currentFrame && nextFrame) {
+				refresh();
+				frame++;
+			}
+		}
 	}
+}
+
+void Processor::reset()
+{
+	frame = 0;
+	frameBuffer->reset();
+	frameBuffer->nextFrame(&nextFrame);
 }
 
 void Processor::update()
@@ -410,7 +466,7 @@ void Processor::refresh()
 
 	// Set the shader
 	shader->use();
-	shader->setFloat("time", std::min((float) (frame % frameBuffer->stepSize) / (float) frameBuffer->stepSize, 1.0f));
+	shader->setFloat("time", static_cast<float>(frame % interFrames) / static_cast<float>(interFrames));
 
 	// Draw the vertices
 	glBindVertexArray(VAO);
