@@ -3,7 +3,7 @@
 
 #include "Paths.h"
 #include "Types.h"
-#include "Processor.h"
+#include "Replayer.h"
 
 #include "SDL.h"
 #include "GL/glew.h"
@@ -264,6 +264,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 		return false;
 	}
 
+	// XXX/bmoody Get this from the config
 	int fileStep = std::next(positionFiles.begin())->first - positionFiles.begin()->first;
 	if (frameStep < fileStep) {
 		spdlog::error("Frame step must be larger than file step size (frameStep: {}, fileStep: {})", frameStep, fileStep);
@@ -277,13 +278,13 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 
 	// Add 1 for position file 0
 	int bufferSize = positionFiles.size() / (frameStep / fileStep) + 1;
-	unsigned long bufferBytes = bufferSize * nParticles * sizeof(glm::vec3);
+	unsigned long long bufferBytes = static_cast<unsigned long long>(bufferSize) * static_cast<unsigned long long>(nParticles) * sizeof(glm::vec3);
 
 	spdlog::info("Buffer size: {}", bufferSize);
-	spdlog::info("Buffer memory: {}mb", static_cast<float>(bufferBytes) / 1000000.0);
+	spdlog::info("Buffer memory: {:.0f}mb", static_cast<float>(bufferBytes) / 1000000.0);
 
 	if (bufferBytes > MAX_MEMORY) {
-		spdlog::error("Too many position files, will require allocating {}mb", static_cast<float>(bufferBytes) / 1000000.0);
+		spdlog::error("Too many position files, will require allocating {:.0f}mb", static_cast<float>(bufferBytes) / 1000000.0);
 		return false;
 	}
 
@@ -293,7 +294,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 
 	while (frameBuffer->bufferSize() < bufferSize) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
-		spdlog::info("Frames buffered: {}/{}", frameBuffer->bufferSize(), bufferSize);
+		spdlog::info("Buffering: {:.0f}%", static_cast<float>(frameBuffer->bufferSize()) / static_cast<float>(bufferSize) * 100.0);
 	}
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
