@@ -9,8 +9,6 @@
 #include "GL/glew.h"
 #include "gl/gl.h"
 
-const unsigned long long MAX_MEMORY = 10ULL * 1000ULL * 1000ULL * 1000ULL;
-
 SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
 bool m_bVblank = true;
@@ -283,7 +281,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	spdlog::info("Buffer size: {}", bufferSize);
 	spdlog::info("Buffer memory: {:.0f}mb", static_cast<float>(bufferBytes) / 1000000.0);
 
-	if (bufferBytes > MAX_MEMORY) {
+	if (bufferBytes > MAX_BUFFER_MEMORY) {
 		spdlog::error("Too many position files, will require allocating {:.0f}mb", static_cast<float>(bufferBytes) / 1000000.0);
 		return false;
 	}

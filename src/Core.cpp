@@ -53,8 +53,10 @@ void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* e
 	fout << data;
 }
 
-FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int stepSize):
-	FrameBuffer<Particle>(queueSize, nParticles, stepSize)
+FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState):
+	FrameBuffer<Particle>(queueSize, nParticles, framesPerPosition),
+	framesPerPosition(framesPerPosition),
+	framesPerState(framesPerState)
 {
 }
 
@@ -103,12 +105,19 @@ void FrameBufferOut::run()
 					return a.id < b.id;
 				});
 
-				if (frameIndex % 1 == 0) {
-					// Write the position data to file
-					// dumpParticles(("position-" + std::to_string(frameIndex) + ".yaml"), nParticles, frame.get());
+				// Write the position data to file
+				// dumpParticles(("position-" + std::to_string(frameIndex) + ".yaml"), nParticles, frame.get());
+				if (frameIndex % framesPerPosition == 0) {
 					std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
 					for (int i = 0; i < nParticles; i++)
 						positionToFile(&file, &frame[i].position.x, &frame[i].position.y);
+					file.close();
+				}
+
+				if (frameIndex % framesPerState == 0) {
+					std::ofstream file(StateDataDirectory / ("state-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
+					for (int i = 0; i < nParticles; i++)
+						particleToFile(&file, &frame[i].position.x, &frame[i].position.y, &frame[i].velocity.x, &frame[i].velocity.y, &frame[i].mass);
 					file.close();
 				}
 			}
@@ -222,6 +231,8 @@ void Core::verifyConfiguration()
 	values["framesPerState"] = std::to_string(framesPerState);
 	if (framesPerState < 0)
 		errors["framesPerState"].push_back("must be positive");
+	if (framesPerState % framesPerPosition != 0)
+		errors["framesPerState"].push_back("must be a multiple of framesPerPosition");
 
 	for (auto& pair : values) {
 		if (errors.find(pair.first) == errors.end()) {
@@ -298,36 +309,12 @@ void Core::setFramesPerState(int framesPerState)
 	this->framesPerState = framesPerState;
 }
 
-void Core::writePositionToDisk()
-{
-	std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frame) + ".dat"), std::ios::binary);
-
-	for (int i = 0; i < instance->nParticles; i++)
-		positionToFile(&file, &particles[i].position.x, &particles[i].position.y);
-
-	file.close();
-}
-
-void Core::writeStateToDisk()
-{
-	std::ofstream file(StateDataDirectory / ("state-" + std::to_string(frame) + ".dat"), std::ios::binary);
-
-	for (int i = 0; i < instance->nParticles; i++)
-		particleToFile(&file, &particles[i].position.x, &particles[i].position.y, &particles[i].velocity.x, &particles[i].velocity.y, &particles[i].mass);
-
-	file.close();
-}
-
 std::chrono::milliseconds Core::writeToDisk()
 {
 	auto writeStartTime = getMilliseconds();
 
-	frameBuffer->nextFrame(&particles);
-
-//	if (frame % framesPerPosition == 0)
-//		writePositionToDisk();
-//	if (frame % framesPerState == 0)
-//		writeStateToDisk();
+	if (frame % framesPerPosition == 0 || frame % framesPerState == 0)
+		frameBuffer->nextFrame(&particles);
 
 	return getMilliseconds() - writeStartTime;
 }
@@ -339,7 +326,7 @@ void Core::run()
 	auto writeTime = std::chrono::milliseconds(0);
 	int framesThisPeriod = 0;
 
-	frameBuffer = std::make_shared<FrameBufferOut>(100, instance->nParticles, 1);
+	frameBuffer = std::make_shared<FrameBufferOut>(MAX_BUFFER_MEMORY / (static_cast<unsigned long long>(instance->nParticles) * sizeof(Particle)), instance->nParticles, framesPerPosition, framesPerState);
 	frameBuffer->start();
 
 	startTime = getMilliseconds();
@@ -356,8 +343,11 @@ void Core::run()
 		writeTime += writeToDisk();
 		frameTime += (getMilliseconds() - lastFrameTime);
 
-		if (frameTime >= std::chrono::seconds(1)) {
-			spdlog::info("Frame {} completed: {}ms frame ({}ms kernel, {}ms writing)", frame, frameTime.count() / framesThisPeriod, kernelTime.count() / framesThisPeriod, writeTime.count() / framesThisPeriod);
+		frame++;
+		framesThisPeriod++;
+
+		if (frameTime >= std::chrono::seconds(1) && framesThisPeriod > 0) {
+			spdlog::info("[{:.2f}m] Frame {}: {}ms frame ({}ms kernel, {}ms writing)", (getMilliseconds() - startTime).count() / 60000.0f, frame, frameTime.count() / framesThisPeriod, kernelTime.count() / framesThisPeriod, writeTime.count() / framesThisPeriod);
 			frameTime = std::chrono::milliseconds(0);
 			kernelTime = std::chrono::milliseconds(0);
 			writeTime = std::chrono::milliseconds(0);
@@ -365,8 +355,6 @@ void Core::run()
 		}
 
 		lastFrameTime = getMilliseconds();
-		frame++;
-		framesThisPeriod++;
 	}
 
 	spdlog::info("Simulation shutting down");

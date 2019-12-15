@@ -38,10 +38,13 @@ void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* e
 class FrameBufferOut : public FrameBuffer<Particle>
 {
 public:
-	FrameBufferOut(int queueSize, int nParticles, int stepSize);
+	FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState);
 
 	virtual void nextFrame(std::shared_ptr<Particle[]>* frame);
 	virtual void run();
+
+	int framesPerPosition;
+	int framesPerState;
 };
 
 class Core
@@ -70,9 +73,6 @@ public:
 	void run();
 	void kill();
 private:
-
-	void writePositionToDisk();
-	void writeStateToDisk();
 	std::chrono::milliseconds writeToDisk();
 
 	volatile bool alive;

@@ -8,6 +8,8 @@
 
 #include "yaml-cpp/yaml.h"
 
+extern const unsigned long long MAX_BUFFER_MEMORY;
+
 struct Kernel
 {
 	enum

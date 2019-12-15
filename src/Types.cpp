@@ -1,6 +1,8 @@
 #include "Types.h"
 #include "Paths.h"
 
+const unsigned long long MAX_BUFFER_MEMORY = 10ULL * 1000ULL * 1000ULL * 1000ULL;
+
 std::map <std::string, int> Kernel::fromString = {
 	   {"gravity", Kernel::gravity},
 	   {"experimental", Kernel::experimental}

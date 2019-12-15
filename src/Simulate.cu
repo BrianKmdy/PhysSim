@@ -183,7 +183,7 @@ __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, In
 		// Add the force from the external force field
 		if (instance.nExternalForceBoxes > 0) {
 			int externalBoxId = instance.getExternalForceBoxID(particles[i].position);
-			particles[i].force += 100 * particles[i].mass * externalForceField[externalBoxId];
+			particles[i].force += particles[i].mass * externalForceField[externalBoxId];
 		}
 	}
 }

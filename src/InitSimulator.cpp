@@ -154,6 +154,7 @@ void loadConfig()
 
 		float averageMass = totalMass / instance->nExternalForceBoxes;
 		float averageDist = 0.0f;
+		auto startTime = getMilliseconds();
 
 		for (int i = 0; i < instance->nExternalForceBoxes; i++) {
 			averageDist = 0.0f;
@@ -168,6 +169,11 @@ void loadConfig()
 				float2 force = directionUnit * mass;
 				totalForce += force;
 				averageDist = (averageDist * o + dist) / (o + 1);
+
+				if ((getMilliseconds() - startTime) > std::chrono::seconds(1)) {
+					spdlog::info("Generating field: {:.0f}%", static_cast<float>(i) / static_cast<float>(instance->nExternalForceBoxes) * 100.0f);
+					startTime = getMilliseconds();
+				}
 			}
 
 			externalForceField[i] = totalForce;
