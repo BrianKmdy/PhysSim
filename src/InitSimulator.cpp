@@ -135,6 +135,48 @@ void loadConfig()
 	// Load the boxes
 	std::shared_ptr<Box[]> boxes = loadBoxes(instance);
 	gCore.setBoxes(boxes);
+
+	std::shared_ptr<float2[]> externalForceField;
+
+	float totalMass = 0.0f;
+	for (int i = 0; i < instance->nParticles; i++)
+		totalMass += particles[i].mass;
+
+	if (gConfig["externalForceFieldDivisions"].IsDefined()) {
+		spdlog::info("Generating external force field");
+
+		instance->externalForceFieldDivisions = gConfig["externalForceFieldDivisions"].as<int>();
+		instance->externalForceBoxSize = instance->dimensions / instance->externalForceFieldDivisions;
+		instance->nExternalForceBoxes = instance->externalForceFieldDivisions * instance->externalForceFieldDivisions;
+
+		externalForceField = std::shared_ptr<float2[]>(new float2[instance->nExternalForceBoxes]);
+		memset(externalForceField.get(), 0, instance->nExternalForceBoxes * sizeof(float2));
+
+		float averageMass = totalMass / instance->nExternalForceBoxes;
+		float averageDist = 0.0f;
+
+		for (int i = 0; i < instance->nExternalForceBoxes; i++) {
+			averageDist = 0.0f;
+			float2 totalForce = make_float2(0.0f, 0.0f);
+			for (int o = 0; o < instance->nExternalForceBoxes; o++) {
+				if (i == o)
+					continue;
+
+				float dist = distance(instance->externalForceBoxCenter(i), instance->externalForceBoxCenter(o));
+				float2 directionUnit = (direction(instance->externalForceBoxCenter(i), instance->externalForceBoxCenter(o)) / dist);
+				float mass = (averageMass / powf(dist, 2.0));
+				float2 force = directionUnit * mass;
+				totalForce += force;
+				averageDist = (averageDist * o + dist) / (o + 1);
+			}
+
+			externalForceField[i] = totalForce;
+		}
+	}
+	else {
+		externalForceField = std::shared_ptr<float2[]>(new float2[1]);
+	}
+	gCore.setExternalForceField(externalForceField);
 }
 
 void saveConfig()
@@ -184,9 +226,11 @@ int main()
 	}
 
 	try {
+		dumpExternalForceField("forcefield_before.yaml", gCore.getInstance()->nExternalForceBoxes, gCore.getExternalForceField().get());
 		// dumpState("before");
 		gCore.run();
 		// dumpState("after");
+		dumpExternalForceField("forcefield_after.yaml", gCore.getInstance()->nExternalForceBoxes, gCore.getExternalForceField().get());
 
 		saveConfig();
 	}

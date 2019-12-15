@@ -112,20 +112,20 @@ __host__ __device__ float2 operator/(const float2& a, const float& b) {
 }
 
 // float2 int
-__host__ __device__ int2 operator+(const float2& a, const int& b) {
-	return make_int2(a.x + b, a.y + b);
+__host__ __device__ float2 operator+(const float2& a, const int& b) {
+	return make_float2(a.x + b, a.y + b);
 }
 
-__host__ __device__ int2 operator-(const float2& a, const int& b) {
-	return make_int2(a.x - b, a.y - b);
+__host__ __device__ float2 operator-(const float2& a, const int& b) {
+	return make_float2(a.x - b, a.y - b);
 }
 
-__host__ __device__ int2 operator*(const float2& a, const int& b) {
-	return make_int2(a.x * b, a.y * b);
+__host__ __device__ float2 operator*(const float2& a, const int& b) {
+	return make_float2(a.x * b, a.y * b);
 }
 
-__host__ __device__ int2 operator/(const float2& a, const int& b) {
-	return make_int2(a.x / b, a.y / b);
+__host__ __device__ float2 operator/(const float2& a, const int& b) {
+	return make_float2(a.x / b, a.y / b);
 }
 
 // float3 float3

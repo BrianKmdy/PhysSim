@@ -33,6 +33,7 @@
 
 void dumpParticles(std::string name, int nParticles, Particle* particles);
 void dumpBoxes(std::string name, int nBoxes, Box* boxes);
+void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* externalForceField);
 
 class FrameBufferOut : public FrameBuffer<Particle>
 {
@@ -47,7 +48,7 @@ class Core
 {
 public:
 	Core();
-    Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes);
+    Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes, std::shared_ptr<float2[]> externalForceField);
 	~Core();
 
 	void verifyConfiguration();
@@ -55,9 +56,11 @@ public:
 	std::shared_ptr<Instance> getInstance();
 	std::shared_ptr<Particle[]> getParticles();
 	std::shared_ptr<Box[]> getBoxes();
+	std::shared_ptr<float2[]> getExternalForceField();
 	void setInstance(std::shared_ptr<Instance> instance);
 	void setParticles(std::shared_ptr<Particle[]> particles);
 	void setBoxes(std::shared_ptr<Box[]> boxes);
+	void setExternalForceField(std::shared_ptr<float2[]> externalForceField);
 
 	void setFramesPerPosition(int framesPerPosition);
 	void setFramesPerState(int framesPerState);
@@ -77,6 +80,7 @@ private:
 	std::shared_ptr<Instance> instance;
 	std::shared_ptr<Particle[]> particles;
 	std::shared_ptr<Box[]> boxes;
+	std::shared_ptr<float2[]> externalForceField;
 
 	int framesPerPosition;
 	int framesPerState;
@@ -88,5 +92,5 @@ private:
 
 	int frame;
 	std::chrono::milliseconds startTime;
-	std::chrono::milliseconds frameTime;
+	std::chrono::milliseconds lastFrameTime;
 };

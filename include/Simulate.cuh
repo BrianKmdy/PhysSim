@@ -47,6 +47,10 @@ struct Instance
 	int nParticles;
 	int nBoxes;
 
+	int externalForceFieldDivisions;
+	int nExternalForceBoxes;
+	int externalForceBoxSize;
+
 	Instance():
 		dimensions(0),
 		divisions(0),
@@ -55,18 +59,23 @@ struct Instance
 		timeStep(1.0),
 		minForceDistance(1.0),
 		nParticles(0),
-		nBoxes(0)
+		nBoxes(0),
+		externalForceFieldDivisions(0),
+		nExternalForceBoxes(0),
+		externalForceBoxSize(0)
 	{
 	}
 
 	__host__ __device__ int getBoxIndex(float2 position);
 	__host__ __device__ bool adjacentBoxes(int boxId1, int boxId2);
+	__host__ __device__ float2 externalForceBoxCenter(int externalForceBoxID);
+	__host__ __device__ int getExternalForceBoxID(float2 position);
 };
 
 // XXX/bmoody Can move all of this into a class
 __host__ void initializeCuda(Instance* instance);
 __host__ void unInitializeCuda();
 
-__host__ std::chrono::milliseconds simulate(Instance* instance, Particle *particles, Box* boxes, int kernel);
+__host__ std::chrono::milliseconds simulate(Instance* instance, Particle* particles, Box* boxes, float2* externalForceField, int kernel);
 __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes);
-__global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes);
+__global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes, float2* externalForceField);

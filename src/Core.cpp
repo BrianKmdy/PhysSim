@@ -40,6 +40,19 @@ void dumpBoxes(std::string name, int nBoxes, Box* boxes)
 	fout << data;
 }
 
+void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* externalForceField)
+{
+	YAML::Node data;
+
+	for (int i = 0; i < nExternalForceBoxes; i++) {
+		data["forcefield"][i]["x"] = std::to_string(externalForceField[i].x);
+		data["forcefield"][i]["y"] = std::to_string(externalForceField[i].y);
+	}
+
+	std::ofstream fout(OutputDirectory / name);
+	fout << data;
+}
+
 FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int stepSize):
 	FrameBuffer<Particle>(queueSize, nParticles, stepSize)
 {
@@ -49,7 +62,7 @@ void FrameBufferOut::nextFrame(std::shared_ptr<Particle[]>* frame)
 {
 	while (framePool.empty()) {
 		spdlog::warn("Waiting for a free buffer frame");
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
 	std::scoped_lock lock(mutex);
@@ -90,7 +103,7 @@ void FrameBufferOut::run()
 					return a.id < b.id;
 				});
 
-				if (frameIndex % 25 == 0) {
+				if (frameIndex % 1 == 0) {
 					// Write the position data to file
 					// dumpParticles(("position-" + std::to_string(frameIndex) + ".yaml"), nParticles, frame.get());
 					std::ofstream file(PositionDataDirectory / ("position-" + std::to_string(frameIndex) + ".dat"), std::ios::binary);
@@ -113,15 +126,16 @@ void FrameBufferOut::run()
 }
 
 Core::Core():
-	Core(nullptr, nullptr, nullptr)
+	Core(nullptr, nullptr, nullptr, nullptr)
 {
 }
 
-Core::Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes):
+Core::Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes, std::shared_ptr<float2[]> externalForceField):
 	alive(true),
 	instance(instance),
 	particles(particles),
 	boxes(boxes),
+	externalForceField(externalForceField),
 	frame(0),
 	framesPerPosition(1),
 	framesPerState(100),
@@ -129,7 +143,7 @@ Core::Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> parti
 	kernel(Kernel::unknown),
 	kernelName("not set"),
 	startTime(std::chrono::milliseconds(0)),
-	frameTime(std::chrono::milliseconds(0))
+	lastFrameTime(std::chrono::milliseconds(0))
 {
 }
 
@@ -243,6 +257,11 @@ std::shared_ptr<Box[]> Core::getBoxes()
 	return boxes;
 }
 
+std::shared_ptr<float2[]> Core::getExternalForceField()
+{
+	return externalForceField;
+}
+
 void Core::setInstance(std::shared_ptr<Instance> instance)
 {
 	this->instance = instance;
@@ -256,6 +275,11 @@ void Core::setParticles(std::shared_ptr<Particle[]> particles)
 void Core::setBoxes(std::shared_ptr<Box[]> boxes)
 {
 	this->boxes = boxes;
+}
+
+void Core::setExternalForceField(std::shared_ptr<float2[]> externalForceField)
+{
+	this->externalForceField = externalForceField;
 }
 
 void Core::setKernel(std::string kernelName)
@@ -310,6 +334,11 @@ std::chrono::milliseconds Core::writeToDisk()
 
 void Core::run()
 {
+	auto frameTime = std::chrono::milliseconds(0);
+	auto kernelTime = std::chrono::milliseconds(0);
+	auto writeTime = std::chrono::milliseconds(0);
+	int framesThisPeriod = 0;
+
 	frameBuffer = std::make_shared<FrameBufferOut>(100, instance->nParticles, 1);
 	frameBuffer->start();
 
@@ -319,18 +348,25 @@ void Core::run()
 	initializeCuda(instance.get());
 
 	spdlog::info("Running simulation");
-	frameTime = getMilliseconds();
+	lastFrameTime = getMilliseconds();
 
 	while (alive) {
 		// Run the kernel
-		auto kernelTime = simulate(instance.get(), particles.get(), boxes.get(), kernel);
+		kernelTime += simulate(instance.get(), particles.get(), boxes.get(), externalForceField.get(), kernel);
+		writeTime += writeToDisk();
+		frameTime += (getMilliseconds() - lastFrameTime);
 
-		// Write the results to disk
-		auto writeTime = writeToDisk();
+		if (frameTime >= std::chrono::seconds(1)) {
+			spdlog::info("Frame {} completed: {}ms frame ({}ms kernel, {}ms writing)", frame, frameTime.count() / framesThisPeriod, kernelTime.count() / framesThisPeriod, writeTime.count() / framesThisPeriod);
+			frameTime = std::chrono::milliseconds(0);
+			kernelTime = std::chrono::milliseconds(0);
+			writeTime = std::chrono::milliseconds(0);
+			framesThisPeriod = 0;
+		}
 
-		spdlog::info("Frame {} completed in {}ms ({}ms kernel, {}ms writing)", frame, (getMilliseconds() - frameTime).count(), kernelTime.count(), writeTime.count());
-		frameTime = getMilliseconds();
+		lastFrameTime = getMilliseconds();
 		frame++;
+		framesThisPeriod++;
 	}
 
 	spdlog::info("Simulation shutting down");

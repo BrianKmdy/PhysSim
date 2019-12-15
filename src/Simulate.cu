@@ -5,6 +5,7 @@
 
 std::vector<Particle*> gDeviceParticles;
 std::vector<Box*> gDeviceBoxes;
+std::vector<float2*> gExternalForceField;
 
 __host__ void initializeCuda(Instance* instance)
 {
@@ -18,6 +19,8 @@ __host__ void initializeCuda(Instance* instance)
 		cudaMalloc(&gDeviceParticles[i], instance->nParticles * sizeof(Particle));
 		gDeviceBoxes.push_back(nullptr);
 		cudaMalloc(&gDeviceBoxes[i], instance->nBoxes * sizeof(Box));
+		gExternalForceField.push_back(nullptr);
+		cudaMalloc(&gExternalForceField[i], instance->nExternalForceBoxes * sizeof(float2));
 	}
 }
 
@@ -31,26 +34,32 @@ __host__ void unInitializeCuda()
 
 		cudaFree(gDeviceParticles[i]);
 		cudaFree(gDeviceBoxes[i]);
+		cudaFree(gExternalForceField[i]);
 		cudaDeviceReset();
 	}
 }
 
-__host__ std::chrono::milliseconds simulate(Instance* instance, Particle* particles, Box* boxes, int kernel)
+#include <iostream>
+__host__ std::chrono::milliseconds simulate(Instance* instance, Particle* particles, Box* boxes, float2* externalForceField, int kernel)
 {
-	for (int i = 0; i < instance->nBoxes; i++) {
-		boxes[i].mass = 0.0;
-		boxes[i].centerMass = make_float2(0.0, 0.0);
-		boxes[i].nParticles = 0;
-		boxes[i].particleOffset = 0;
+	for (int bId = 0; bId < instance->nBoxes; bId++) {
+		boxes[bId].mass = 0.0;
+		boxes[bId].centerMass = make_float2(0.0, 0.0);
+		boxes[bId].nParticles = 0;
+		boxes[bId].particleOffset = 0;
 	}
 
-	for (int i = 0; i < instance->nParticles; i++) {
-		particles[i].force = make_float2(0.0, 0.0);
-		particles[i].boxId = instance->getBoxIndex(particles[i].position);
-		boxes[particles[i].boxId].centerMass = (boxes[particles[i].boxId].centerMass * boxes[particles[i].boxId].mass + particles[i].position * particles[i].mass)
-			/ (boxes[particles[i].boxId].mass + particles[i].mass);
-		boxes[particles[i].boxId].mass += particles[i].mass;
-		boxes[particles[i].boxId].nParticles += 1;
+	for (int pId = 0; pId < instance->nParticles; pId++) {
+		int bId = instance->getBoxIndex(particles[pId].position);;
+		if (bId >= instance->nBoxes) {
+			std::cout << "box id too big: " << bId << std::endl;
+		}
+		particles[pId].force = make_float2(0.0, 0.0);
+		particles[pId].boxId = bId;
+		boxes[bId].centerMass = (boxes[bId].centerMass * boxes[bId].mass + particles[pId].position * particles[pId].mass)
+									/ (boxes[bId].mass + particles[pId].mass);
+		boxes[bId].mass += particles[pId].mass;
+		boxes[bId].nParticles += 1;
 	}
 
 	// Is it possible to do this in a more efficient way without using a sort?
@@ -80,11 +89,12 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 		int endIndex = static_cast<int>(std::min((i + 1) * deviceBatchSize, instance->nParticles));
 		gpuErrchk(cudaMemcpy(gDeviceParticles[i], particles, instance->nParticles * sizeof(Particle), cudaMemcpyHostToDevice));
 		gpuErrchk(cudaMemcpy(gDeviceBoxes[i], boxes, instance->nBoxes * sizeof(Box), cudaMemcpyHostToDevice));
+		gpuErrchk(cudaMemcpy(gExternalForceField[i], externalForceField, instance->nExternalForceBoxes * sizeof(float2), cudaMemcpyHostToDevice));
 
 		// Launch the kernel
 		switch (kernel) {
 			case Kernel::experimental:
-				experimental<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+				experimental<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i], gExternalForceField[i]);
 				break;
 			default:
 				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
@@ -147,7 +157,7 @@ __global__ void gravity(int deviceId, int deviceBatchSize, int endIndex, Instanc
 }
 
 // XXX/bmoody Can make this more accurate (expensive) by having each particle directly interact with the particles of adjacent boxes as well
-__global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes)
+__global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, Instance instance, Particle* particles, Box* boxes, float2* externalForceField)
 {
 	unsigned int index = deviceId * deviceBatchSize + blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int stride = blockDim.x * gridDim.x;
@@ -169,13 +179,19 @@ __global__ void experimental(int deviceId, int deviceBatchSize, int endIndex, In
 					particles[i].force += (direction(boxes[o].centerMass, particles[i].position) / dist) * ((particles[i].mass * boxes[o].mass) / powf(dist, 2.0));
 			}
 		}
+
+		// Add the force from the external force field
+		if (instance.nExternalForceBoxes > 0) {
+			int externalBoxId = instance.getExternalForceBoxID(particles[i].position);
+			particles[i].force += 100 * particles[i].mass * externalForceField[externalBoxId];
+		}
 	}
 }
 
 __host__ __device__ int Instance::getBoxIndex(float2 position)
 {
-	int2 index = (position + (dimensions / 2)) / boxSize;
-
+	// Default coordinate range is [-dimensions / 2, dimensions / 2], we want to go from [0, dimensions]
+	int2 index = make_int2(std::floor(position.x) + (dimensions / 2), std::floor(position.y) + (dimensions / 2)) / boxSize;
 	return index.x * divisions + index.y;
 }
 
@@ -191,22 +207,34 @@ __host__ __device__ bool Instance::adjacentBoxes(int boxId1, int boxId2)
 		return false;
 }
 
+__host__ __device__ float2 Instance::externalForceBoxCenter(int externalForceBoxID) {
+	int2 boxPosition = make_int2(externalForceBoxID / externalForceFieldDivisions, externalForceBoxID % externalForceFieldDivisions);
+	return make_float2(static_cast<float>(boxPosition.x) * externalForceBoxSize + static_cast<float>(externalForceBoxSize) / 2,
+		               static_cast<float>(boxPosition.y) * externalForceBoxSize + static_cast<float>(externalForceBoxSize) / 2);
+}
+
+__host__ __device__ int Instance::getExternalForceBoxID(float2 position) {
+	// Default coordinate range is [-dimensions / 2, dimensions / 2], we want to go from [0, dimensions]
+	int2 index = make_int2(std::floor(position.x) + (dimensions / 2), std::floor(position.y) + (dimensions / 2)) / externalForceBoxSize;
+	return index.x * externalForceFieldDivisions + index.y;
+}
+
 __host__ __device__ void Particle::enforceBoundary(float maxBoundary)
 {
 	//// XXX/bmoody Review this, there must be a better way
-	if (position.x < -maxBoundary) {
+	if (position.x <= -maxBoundary) {
 		position.x = -maxBoundary + 1.0;
 		velocity.x = 0.0;
 	}
-	if (position.x > maxBoundary) {
+	if (position.x >= maxBoundary) {
 		position.x = maxBoundary - 1.0;
 		velocity.x = 0.0;
 	}
-	if (position.y < -maxBoundary) {
+	if (position.y <= -maxBoundary) {
 		position.y = -maxBoundary + 1.0;
 		velocity.y = 0.0;
 	}
-	if (position.y > maxBoundary) {
+	if (position.y >= maxBoundary) {
 		position.y = maxBoundary - 1.0;
 		velocity.y = 0.0;
 	}
