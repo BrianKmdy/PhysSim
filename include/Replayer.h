@@ -69,10 +69,15 @@ private:
 	std::shared_ptr<glm::vec3[]> currentFrame;
 	std::shared_ptr<glm::vec3[]> nextFrame;
 
-	std::shared_ptr<Shader> shader;
 	std::shared_ptr<FrameBufferIn> frameBuffer;
+
+	std::shared_ptr<Shader> shader;
+	std::shared_ptr<Shader> controls;
 
 	unsigned int VBOCurrent;
 	unsigned int VBONext;
 	unsigned int VAO;
+
+	unsigned int VBOControls;
+	unsigned int VAOControls;
 };

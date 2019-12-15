@@ -222,14 +222,18 @@ Processor::Processor(int frameStep, float speed):
 	alive(true),
 	frameStep(frameStep),
 	interFrames(frameStep / speed),
+	bufferSize(0),
 	frame(0),
 	currentFrame(nullptr),
 	nextFrame(nullptr),
 	shader(nullptr),
+	controls(nullptr),
 	frameBuffer(nullptr),
 	VBOCurrent(0),
     VBONext(0),
-    VAO(0)
+    VAO(0),
+	VBOControls(0),
+	VAOControls(0)
 {
 }
 
@@ -350,10 +354,25 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	// build and compile our shader program
 	// ------------------------------------
 	shader = std::make_shared<Shader>(shaderPath / "shader.vs", shaderPath / "shader.fs"); // you can name your shader files however you like
+	controls = std::make_shared<Shader>(shaderPath / "controls.vs", shaderPath / "controls.fs"); // you can name your shader files however you like
 
+	// Generate the vertex array for the particles
 	glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBOCurrent);
 	glGenBuffers(1, &VBONext);
+
+	// Generate the vertex array for the controls
+	glGenVertexArrays(1, &VAOControls);
+	glGenBuffers(1, &VBOControls);
+
+	glm::vec3 progressBarData[2] = { {0, 0, 0}, {2, 0, 0} };
+	glBindVertexArray(VAOControls);
+	glBindBuffer(GL_ARRAY_BUFFER, VBOControls);
+	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(glm::vec3), progressBarData, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+	glEnableVertexAttribArray(0);
+
 	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
 	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 	// glBindVertexArray(0);
@@ -463,11 +482,18 @@ void Processor::refresh()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Set the shader
+	// Set the shader for the controls and draw
+	controls->use();
+	controls->setFloat("time", static_cast<float>(frame) / static_cast<float>(frameBuffer->bufferSize() * interFrames));
+
+	glBindVertexArray(VAOControls);
+	glLineWidth(4.0f);
+	glDrawArrays(GL_LINES, 0, 2);
+
+	// Set the shader for the particles and draw
 	shader->use();
 	shader->setFloat("time", static_cast<float>(frame % interFrames) / static_cast<float>(interFrames));
 
-	// Draw the vertices
 	glBindVertexArray(VAO);
 	glPointSize(3.0f);
 	glDrawArrays(GL_POINTS, 0, nParticles);
