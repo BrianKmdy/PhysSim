@@ -6,6 +6,34 @@
 #include "Core.h"
 #include "Paths.h"
 
+std::string getTimeString(std::chrono::milliseconds time, int decimals = 2) {
+	std::stringstream timeString;
+
+	timeString << std::setprecision(decimals) << std::fixed;
+	if (time >= std::chrono::hours(24)) {
+		timeString << static_cast<double>(time.count()) / 86400000.0;
+		timeString << "d";
+	}
+	else if (time >= std::chrono::hours(1)) {
+		timeString << static_cast<double>(time.count()) / 3600000.0;
+		timeString << "h";
+	}
+	else if (time >= std::chrono::minutes(1)) {
+		timeString << static_cast<double>(time.count()) / 60000.0;
+		timeString << "m";
+	}
+	else if (time >= std::chrono::seconds(1)) {
+		timeString << static_cast<double>(time.count()) / 1000.0;
+		timeString << "s";
+	}
+	else {
+		timeString << time.count();
+		timeString << "ms";
+	}
+
+	return timeString.str();
+}
+
 void dumpParticles(std::string name, int nParticles, Particle* particles)
 {
 	YAML::Node data;
@@ -92,7 +120,6 @@ void FrameBufferOut::run()
 
 			if (hasFramesBuffered()) {
 				frame = frames[frameIndex];
-				frameIndex += stepSize;
 			}
 		}
 
@@ -124,6 +151,8 @@ void FrameBufferOut::run()
 			catch (std::exception e) {
 				spdlog::error("Unable to read frame {} from file", bufferIndex);
 			}
+
+			frameIndex += stepSize;
 		}
 		// Otherwise sleep
 		else {
@@ -326,8 +355,10 @@ void Core::run()
 	auto writeTime = std::chrono::milliseconds(0);
 	int framesThisPeriod = 0;
 
+	// Start the frame buffer and write the initial configuration to disk
 	frameBuffer = std::make_shared<FrameBufferOut>(MAX_BUFFER_MEMORY / (static_cast<unsigned long long>(instance->nParticles) * sizeof(Particle)), instance->nParticles, framesPerPosition, framesPerState);
 	frameBuffer->start();
+	writeToDisk();
 
 	startTime = getMilliseconds();
 
@@ -338,16 +369,26 @@ void Core::run()
 	lastFrameTime = getMilliseconds();
 
 	while (alive) {
-		// Run the kernel
-		kernelTime += simulate(instance.get(), particles.get(), boxes.get(), externalForceField.get(), kernel);
-		writeTime += writeToDisk();
-		frameTime += (getMilliseconds() - lastFrameTime);
+		// Run the kernel and terminate on any cuda errors
+		try {
+			kernelTime += simulate(instance.get(), particles.get(), boxes.get(), externalForceField.get(), kernel);
+		}
+		catch (GpuException& ex) {
+			spdlog::error("Gpu error: {} (file: {} line {})", ex.message, ex.file, ex.line);
+			break;
+		}
 
+		// Increment the frame count
 		frame++;
 		framesThisPeriod++;
 
-		if (frameTime >= std::chrono::seconds(1) && framesThisPeriod > 0) {
-			spdlog::info("[{:.2f}m] Frame {}: {}ms frame ({}ms kernel, {}ms writing)", (getMilliseconds() - startTime).count() / 60000.0f, frame, frameTime.count() / framesThisPeriod, kernelTime.count() / framesThisPeriod, writeTime.count() / framesThisPeriod);
+		// Calculate the write time and total frame time
+		writeTime += writeToDisk();
+		frameTime += (getMilliseconds() - lastFrameTime);
+
+		// Print stats
+		if (frameTime >= std::chrono::seconds(1)) {
+			spdlog::info("[{}] Frame {}: {} frame ({} kernel, {} write)", getTimeString(getMilliseconds() - startTime), frame, getTimeString(frameTime / framesThisPeriod), getTimeString(kernelTime / framesThisPeriod), getTimeString(writeTime / framesThisPeriod));
 			frameTime = std::chrono::milliseconds(0);
 			kernelTime = std::chrono::milliseconds(0);
 			writeTime = std::chrono::milliseconds(0);

@@ -279,7 +279,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	}
 
 	// Add 1 for position file 0
-	int bufferSize = positionFiles.size() / (frameStep / fileStep) + 1;
+	int bufferSize = positionFiles.size() / (frameStep / fileStep);
 	unsigned long long bufferBytes = static_cast<unsigned long long>(bufferSize) * static_cast<unsigned long long>(nParticles) * sizeof(glm::vec3);
 
 	spdlog::info("Buffer size: {}", bufferSize);
@@ -487,7 +487,7 @@ void Processor::refresh()
 	controls->setFloat("time", static_cast<float>(frame) / static_cast<float>(frameBuffer->bufferSize() * interFrames));
 
 	glBindVertexArray(VAOControls);
-	glLineWidth(4.0f);
+	glLineWidth(3.0f);
 	glDrawArrays(GL_LINES, 0, 2);
 
 	// Set the shader for the particles and draw
