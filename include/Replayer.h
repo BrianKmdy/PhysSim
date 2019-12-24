@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iostream>
 #include <deque>
+#include <cstdio>
 
 #include "spdlog/spdlog.h"
 #include "glm/ext.hpp"
@@ -43,10 +44,10 @@ private:
 	std::map<int, std::string> files;
 };
 
-class Processor
+class Replayer
 {
 public:
-	Processor(int frameStep, float speed);
+	Replayer(int frameStep, float speed, bool outputToVideo);
 
 	bool init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory);
 	void run();
@@ -80,4 +81,8 @@ private:
 
 	unsigned int VBOControls;
 	unsigned int VAOControls;
+
+	unsigned int glFrameBuffer;
+	bool outputToVideo = true;
+	FILE* outputVideoPipe;
 };

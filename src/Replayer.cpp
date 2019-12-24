@@ -1,5 +1,7 @@
 #include <cstdio>
 #include <algorithm>
+#include <fcntl.h>
+#include <io.h>
 
 #include "Paths.h"
 #include "Types.h"
@@ -214,11 +216,9 @@ void FrameBufferIn::run()
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 	}
-
-	spdlog::info("Framebuffer thread shutting down");
 }
 
-Processor::Processor(int frameStep, float speed):
+Replayer::Replayer(int frameStep, float speed, bool outputToVideo):
 	alive(true),
 	frameStep(frameStep),
 	interFrames(frameStep / speed),
@@ -233,11 +233,14 @@ Processor::Processor(int frameStep, float speed):
     VBONext(0),
     VAO(0),
 	VBOControls(0),
-	VAOControls(0)
+	VAOControls(0),
+	glFrameBuffer(0),
+	outputToVideo(outputToVideo),
+	outputVideoPipe(NULL)
 {
 }
 
-bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory)
+bool Replayer::init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory)
 {
 	std::filesystem::path positionDirectory = sceneDirectory / PositionDirectoryName;
 	std::filesystem::path configPath = sceneDirectory / ConfigFileName;
@@ -279,7 +282,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	}
 
 	// Add 1 for position file 0
-	int bufferSize = positionFiles.size() / (frameStep / fileStep);
+	int bufferSize = positionFiles.size() / (frameStep / fileStep) + 1;
 	unsigned long long bufferBytes = static_cast<unsigned long long>(bufferSize) * static_cast<unsigned long long>(nParticles) * sizeof(glm::vec3);
 
 	spdlog::info("Buffer size: {}", bufferSize);
@@ -294,7 +297,7 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	frameBuffer = std::make_shared<FrameBufferIn>(bufferSize, nParticles, frameStep, positionFiles);
 	frameBuffer->start();
 
-	while (frameBuffer->bufferSize() < bufferSize) {
+	while (frameBuffer->bufferSize() < bufferSize - 1) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		spdlog::info("Buffering: {:.0f}%", static_cast<float>(frameBuffer->bufferSize()) / static_cast<float>(bufferSize) * 100.0);
 	}
@@ -313,7 +316,12 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
 
-	m_pCompanionWindow = SDL_CreateWindow("Simulation", 0, 0, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	int flags = SDL_WINDOW_OPENGL;
+	if (outputToVideo)
+		flags |= SDL_WINDOW_HIDDEN;
+	else
+		flags |= SDL_WINDOW_SHOWN;
+	m_pCompanionWindow = SDL_CreateWindow("Simulation", 0, 0, width, height, flags);
 	if (m_pCompanionWindow == NULL)
 	{
 		spdlog::error("{} - Window could not be created! SDL Error: {}", __FUNCTION__, SDL_GetError());
@@ -373,6 +381,8 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(0);
 
+	glGenFramebuffers(1, &glFrameBuffer);
+
 	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
 	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 	// glBindVertexArray(0);
@@ -381,10 +391,17 @@ bool Processor::init(std::filesystem::path shaderPath, std::filesystem::path sce
 	// glEnable(GL_ALPHA_TEST);
 	// glAlphaFunc(GL_EQUAL, 1.0);
 
+	if (outputToVideo) {
+		outputVideoPipe = _popen(std::string("ffmpeg.exe -y -f rawvideo -s " +
+								 std::to_string(width) + "x" + std::to_string(height) +
+			                     " -pix_fmt rgb24 -r 60 -i - -vcodec libx264 -vf vflip -an latest.mp4").c_str(), "w");
+		_setmode(_fileno(outputVideoPipe), _O_BINARY);
+	}
+
 	return true;
 }
 
-void Processor::handleInput()
+void Replayer::handleInput()
 {
 	SDL_Event event;
 	while (SDL_PollEvent(&event) != 0) {
@@ -399,7 +416,7 @@ void Processor::handleInput()
 	}
 }
 
-void Processor::run()
+void Replayer::run()
 {
 	spdlog::info("Running: {} positions", positionFiles.size());
 
@@ -415,6 +432,9 @@ void Processor::run()
 		handleInput();
 
 		if (!frameBuffer->hasMoreFrames() && !frameBuffer->hasFramesBuffered()) {
+			if (outputToVideo)
+				break;
+
 			reset();
 		}
 
@@ -436,14 +456,14 @@ void Processor::run()
 	}
 }
 
-void Processor::reset()
+void Replayer::reset()
 {
 	frame = 0;
 	frameBuffer->reset();
 	frameBuffer->nextFrame(&nextFrame);
 }
 
-void Processor::update()
+void Replayer::update()
 {
 	glBindVertexArray(VAO);
 
@@ -474,7 +494,7 @@ void Processor::update()
 	shader->setMatrix("projection", projection);
 }
 
-void Processor::refresh()
+void Replayer::refresh()
 {
 	glClearColor(0.8f, 0.0f, 0.0f, 0.3f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -482,13 +502,15 @@ void Processor::refresh()
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Set the shader for the controls and draw
-	controls->use();
-	controls->setFloat("time", static_cast<float>(frame) / static_cast<float>(frameBuffer->bufferSize() * interFrames));
+	if (!outputToVideo) {
+		// Set the shader for the controls and draw
+		controls->use();
+		controls->setFloat("time", static_cast<float>(frame) / static_cast<float>(frameBuffer->bufferSize() * interFrames));
 
-	glBindVertexArray(VAOControls);
-	glLineWidth(3.0f);
-	glDrawArrays(GL_LINES, 0, 2);
+		glBindVertexArray(VAOControls);
+		glLineWidth(3.0f);
+		glDrawArrays(GL_LINES, 0, 2);
+	}
 
 	// Set the shader for the particles and draw
 	shader->use();
@@ -499,12 +521,19 @@ void Processor::refresh()
 	glDrawArrays(GL_POINTS, 0, nParticles);
 
 	// SwapWindow
-	{
-		SDL_GL_SwapWindow(m_pCompanionWindow);
+	SDL_GL_SwapWindow(m_pCompanionWindow);
+
+	// XXX/bmoody No need to re-allocate memory on every frame, can just use a pre-allocated buffer
+	if (outputToVideo) {
+		unsigned char* pixels = new unsigned char[static_cast<size_t>(width) * static_cast<size_t>(height) * 3];
+		glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+		if (outputVideoPipe)
+			fwrite(pixels, 3 * sizeof(unsigned char), static_cast<size_t>(width) * static_cast<size_t>(height), outputVideoPipe);
+		delete[] pixels;
 	}
 }
 
-void Processor::shutdown()
+void Replayer::shutdown()
 {
 	// optional: de-allocate all resources once they've outlived their purpose:
 // ------------------------------------------------------------------------
@@ -512,8 +541,11 @@ void Processor::shutdown()
 	glDeleteBuffers(1, &VBOCurrent);
 	glDeleteBuffers(1, &VBONext);
 
-	if (m_pCompanionWindow)
-	{
+	if (outputToVideo) {
+		_pclose(outputVideoPipe);
+	}
+
+	if (m_pCompanionWindow) {
 		SDL_DestroyWindow(m_pCompanionWindow);
 		m_pCompanionWindow = NULL;
 	}

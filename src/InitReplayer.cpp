@@ -10,6 +10,7 @@ int main(int argc, char* argv[])
 {
 	int frameStep = 1;
 	float speed = 1.0;
+	bool outputToVideo = false;
 	std::filesystem::path sceneDirectory = OutputDirectory;
 
 	// Parse command line arguments
@@ -20,6 +21,7 @@ int main(int argc, char* argv[])
 			("help", "Print help")
 			("f, frameStep", "The step size between disk frames", cxxopts::value<int>())
 			("s, speed", "Playback speed", cxxopts::value<float>())
+			("v, video", "Output to video", cxxopts::value<bool>())
 			("scene", "Path of the scene to load", cxxopts::value<std::string>());
 
 		options.parse_positional({ "scene" });
@@ -37,6 +39,9 @@ int main(int argc, char* argv[])
 		if (result.count("speed"))
 			speed = result["speed"].as<float>();
 
+		if (result.count("video"))
+			outputToVideo = true;
+
 		if (speed > frameStep) {
 			spdlog::error("Playback speed must be less than or equal to frame step");
 			exit(1);
@@ -51,11 +56,11 @@ int main(int argc, char* argv[])
 		exit(1);
 	}
 
-	// Run the post processor
-	Processor processor(frameStep, speed);
-	if (processor.init(std::filesystem::path(argv[0]).remove_filename(), sceneDirectory)) {
-		processor.run();
-		processor.shutdown();
+	// Run the post replayer
+	Replayer replayer(frameStep, speed, outputToVideo);
+	if (replayer.init(std::filesystem::path(argv[0]).remove_filename(), sceneDirectory)) {
+		replayer.run();
+		replayer.shutdown();
 	}
 
 	return 0;
