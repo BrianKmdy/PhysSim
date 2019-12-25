@@ -47,9 +47,18 @@ private:
 class Replayer
 {
 public:
-	Replayer(int frameStep, float speed, bool outputToVideo);
+	Replayer();
 
-	bool init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory);
+	void setShaderPath(std::filesystem::path shaderPath);
+	void setSceneDirectory(std::filesystem::path sceneDirectory);
+	void setFrameStep(int frameStep);
+	void setSpeed(int speed);
+	void setOutputToVideo(bool outputToVideo);
+	void setCodec(std::string codec);
+	void setFormat(std::string format);
+	void setParticleRadius(float radius);
+
+	bool init();
 	void run();
 	void shutdown();
 
@@ -61,9 +70,12 @@ private:
 
 	bool alive;
 
+	std::filesystem::path shaderPath;
+	std::filesystem::path sceneDirectory;
+
 	int frameStep;
+	int speed;
 	int interFrames;
-	int bufferSize;
 
 	int frame;
 
@@ -82,7 +94,12 @@ private:
 	unsigned int VBOControls;
 	unsigned int VAOControls;
 
+	float particleRadius;
+
 	unsigned int glFrameBuffer;
-	bool outputToVideo = true;
+
+	bool outputToVideo;
 	FILE* outputVideoPipe;
+	std::string codec;
+	std::string format;
 };

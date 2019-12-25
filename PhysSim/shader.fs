@@ -13,5 +13,5 @@ void main()
         alpha = max(1.0f - (dist - 0.1f) * 3, 0.0f);
     else
         discard;
-    FragColor = vec4(0.0f, 0.0f, 0.0f, alpha);
+    FragColor = vec4(1.0f, 1.0f, 1.0f, alpha);
 }

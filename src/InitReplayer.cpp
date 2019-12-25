@@ -8,10 +8,8 @@
 
 int main(int argc, char* argv[])
 {
-	int frameStep = 1;
-	float speed = 1.0;
-	bool outputToVideo = false;
-	std::filesystem::path sceneDirectory = OutputDirectory;
+	Replayer replayer;
+	replayer.setShaderPath(std::filesystem::path(argv[0]).remove_filename());
 
 	// Parse command line arguments
 	try {
@@ -21,7 +19,10 @@ int main(int argc, char* argv[])
 			("help", "Print help")
 			("f, frameStep", "The step size between disk frames", cxxopts::value<int>())
 			("s, speed", "Playback speed", cxxopts::value<float>())
+			("r, radius", "Particle radius", cxxopts::value<float>())
 			("v, video", "Output to video", cxxopts::value<bool>())
+			("codec", "Video codec", cxxopts::value<std::string>())
+			("format", "Video file format", cxxopts::value<std::string>())
 			("scene", "Path of the scene to load", cxxopts::value<std::string>());
 
 		options.parse_positional({ "scene" });
@@ -34,21 +35,25 @@ int main(int argc, char* argv[])
 		}
 
 		if (result.count("frameStep"))
-			frameStep = result["frameStep"].as<int>();
+			replayer.setFrameStep(result["frameStep"].as<int>());
 
 		if (result.count("speed"))
-			speed = result["speed"].as<float>();
+			replayer.setSpeed(result["speed"].as<float>());
+
+		if (result.count("radius"))
+			replayer.setParticleRadius(result["radius"].as<float>());
 
 		if (result.count("video"))
-			outputToVideo = true;
+			replayer.setOutputToVideo(true);
 
-		if (speed > frameStep) {
-			spdlog::error("Playback speed must be less than or equal to frame step");
-			exit(1);
-		}
+		if (result.count("codec"))
+			replayer.setCodec(result["codec"].as<std::string>());
+
+		if (result.count("format"))
+			replayer.setFormat(result["format"].as<std::string>());
 
 		if (result.count("scene"))
-			sceneDirectory = std::filesystem::path(result["scene"].as<std::string>());
+			replayer.setSceneDirectory(std::filesystem::path(result["scene"].as<std::string>()));
 	}
 	catch (const cxxopts::OptionException& e) {
 		spdlog::error("Error parsing arguments: {}", e.what());
@@ -57,8 +62,7 @@ int main(int argc, char* argv[])
 	}
 
 	// Run the post replayer
-	Replayer replayer(frameStep, speed, outputToVideo);
-	if (replayer.init(std::filesystem::path(argv[0]).remove_filename(), sceneDirectory)) {
+	if (replayer.init()) {
 		replayer.run();
 		replayer.shutdown();
 	}

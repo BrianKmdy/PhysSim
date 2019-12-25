@@ -232,11 +232,7 @@ int main()
 	}
 
 	try {
-		dumpExternalForceField("forcefield_before.yaml", gCore.getInstance()->nExternalForceBoxes, gCore.getExternalForceField().get());
-		// dumpState("before");
 		gCore.run();
-		// dumpState("after");
-		dumpExternalForceField("forcefield_after.yaml", gCore.getInstance()->nExternalForceBoxes, gCore.getExternalForceField().get());
 
 		saveConfig();
 	}

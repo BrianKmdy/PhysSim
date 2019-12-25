@@ -218,30 +218,83 @@ void FrameBufferIn::run()
 	}
 }
 
-Replayer::Replayer(int frameStep, float speed, bool outputToVideo):
+Replayer::Replayer():
 	alive(true),
-	frameStep(frameStep),
-	interFrames(frameStep / speed),
-	bufferSize(0),
+	shaderPath(),
+	sceneDirectory(OutputDirectory),
+	frameStep(1),
+	speed(1),
+	interFrames(1),
 	frame(0),
 	currentFrame(nullptr),
 	nextFrame(nullptr),
 	shader(nullptr),
 	controls(nullptr),
 	frameBuffer(nullptr),
+	particleRadius(3.0),
 	VBOCurrent(0),
     VBONext(0),
     VAO(0),
 	VBOControls(0),
 	VAOControls(0),
 	glFrameBuffer(0),
-	outputToVideo(outputToVideo),
-	outputVideoPipe(NULL)
+	outputToVideo(false),
+	outputVideoPipe(NULL),
+	codec("libx264"),
+	format("mp4")
 {
 }
 
-bool Replayer::init(std::filesystem::path shaderPath, std::filesystem::path sceneDirectory)
+void Replayer::setShaderPath(std::filesystem::path shaderPath)
 {
+	this->shaderPath = shaderPath;
+}
+
+void Replayer::setSceneDirectory(std::filesystem::path sceneDirectory)
+{
+	this->sceneDirectory = sceneDirectory;
+}
+
+void Replayer::setFrameStep(int frameStep)
+{
+	this->frameStep = frameStep;
+}
+
+void Replayer::setSpeed(int speed)
+{
+	this->speed = speed;
+}
+
+void Replayer::setOutputToVideo(bool outputToVideo)
+{
+	this->outputToVideo = outputToVideo;
+}
+
+void Replayer::setCodec(std::string codec)
+{
+	this->codec = codec;
+}
+
+void Replayer::setFormat(std::string format)
+{
+	this->format = format;
+}
+
+void Replayer::setParticleRadius(float radius)
+{
+	this->particleRadius = radius;
+}
+
+// XXX/bmoody Need to validate settings
+bool Replayer::init()
+{
+	if (speed > frameStep) {
+		spdlog::error("Playback speed must be less than or equal to frame step");
+		return false;
+	}
+
+	interFrames = frameStep / speed;
+
 	std::filesystem::path positionDirectory = sceneDirectory / PositionDirectoryName;
 	std::filesystem::path configPath = sceneDirectory / ConfigFileName;
 
@@ -394,7 +447,10 @@ bool Replayer::init(std::filesystem::path shaderPath, std::filesystem::path scen
 	if (outputToVideo) {
 		outputVideoPipe = _popen(std::string("ffmpeg.exe -y -f rawvideo -s " +
 								 std::to_string(width) + "x" + std::to_string(height) +
-			                     " -pix_fmt rgb24 -r 60 -i - -vcodec libx264 -vf vflip -an latest.mp4").c_str(), "w");
+			                     " -pix_fmt rgb24 -r 60 -i - -vcodec " +
+								 codec +
+			                     " -vf vflip -an latest." +
+		                         format).c_str(), "w");
 		_setmode(_fileno(outputVideoPipe), _O_BINARY);
 	}
 
@@ -484,7 +540,7 @@ void Replayer::update()
 	glm::vec3 look(0., 0., 0.);
 	glm::vec3 up(0, 1., 0.);
 
-	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize * 0.5));
+	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize * 0.55));
 	glm::mat4 view = glm::lookAt(eye, look, up);
 	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
 
@@ -496,11 +552,11 @@ void Replayer::update()
 
 void Replayer::refresh()
 {
-	glClearColor(0.8f, 0.0f, 0.0f, 0.3f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
 	if (!outputToVideo) {
 		// Set the shader for the controls and draw
@@ -517,7 +573,7 @@ void Replayer::refresh()
 	shader->setFloat("time", static_cast<float>(frame % interFrames) / static_cast<float>(interFrames));
 
 	glBindVertexArray(VAO);
-	glPointSize(3.0f);
+	glPointSize(particleRadius);
 	glDrawArrays(GL_POINTS, 0, nParticles);
 
 	// SwapWindow
