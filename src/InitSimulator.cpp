@@ -8,6 +8,8 @@
 #include <csignal>
 #include <thread>
 
+#include "cxxopts.hpp"
+
 #include "Paths.h"
 #include "Types.h"
 #include "Core.h"
@@ -26,12 +28,13 @@ const static int version = 1;
 
 Core gCore;
 YAML::Node gConfig;
+bool gResume = false;
 
 void signalHandler(int signum) {
 	gCore.kill();
 }
 
-std::shared_ptr<Instance> loadInstance()
+std::shared_ptr<Instance> createInstance()
 {
 	spdlog::info("Initializing instance");
 
@@ -58,6 +61,47 @@ std::shared_ptr<Instance> loadInstance()
 }
 
 std::shared_ptr<Particle[]> loadParticles(std::shared_ptr<Instance> instance)
+{
+	spdlog::info("Loading saved particle state from disk");
+
+	if (!std::filesystem::exists(StateDataDirectory))
+		throw std::exception("Unable to find saved state directory");
+
+	// Create the particles
+	std::shared_ptr<Particle[]> particles = std::shared_ptr<Particle[]>(new Particle[instance->nParticles]);
+
+	int latestFrame = 0;
+	std::string latestState;
+	for (auto& path : std::filesystem::directory_iterator(StateDataDirectory)) {
+		std::string stringPath = path.path().string();
+		int frame = std::stoi(stringPath.substr(stringPath.find('-') + 1, stringPath.find('.')));
+		if (frame > latestFrame) {
+			latestFrame = frame;
+			latestState = stringPath;
+		}
+	}
+
+	if (latestFrame == 0)
+		throw std::exception("No state files found");
+
+	spdlog::info("Latest state file found: {}", latestState);
+
+	// spdlog::info("Loading file {}", files[bufferIndex]);
+	int id = 0;
+	std::ifstream stateFile(latestState, std::ios_base::in | std::ios_base::binary);
+	for (int i = 0; i < instance->nParticles; i++) {
+		particleFromFile(&stateFile, &particles[i].position.x, &particles[i].position.y, &particles[i].velocity.x, &particles[i].velocity.y, &particles[i].mass);
+		particles[i].id = id++;
+	}
+	stateFile.close();
+
+	spdlog::info("Setting core to frame {}", latestFrame);
+	gCore.setFrame(latestFrame);
+
+	return particles;
+}
+
+std::shared_ptr<Particle[]> createParticles(std::shared_ptr<Instance> instance)
 {
 	spdlog::info("Initializing particles");
 
@@ -97,7 +141,7 @@ std::shared_ptr<Particle[]> loadParticles(std::shared_ptr<Instance> instance)
 	return particles;
 }
 
-std::shared_ptr<Box[]> loadBoxes(std::shared_ptr<Instance> instance)
+std::shared_ptr<Box[]> createBoxes(std::shared_ptr<Instance> instance)
 {
 	spdlog::info("Initializing boxes");
 
@@ -108,34 +152,8 @@ std::shared_ptr<Box[]> loadBoxes(std::shared_ptr<Instance> instance)
 	return boxes;
 }
 
-void loadConfig()
+std::shared_ptr<float2[]> createForceField(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles)
 {
-	spdlog::info("Loading configuration");
-	gConfig = YAML::LoadFile(ConfigFileName);
-
-	if (!gConfig["name"].IsDefined())
-		throw std::exception("name must be defined");
-
-	if (gConfig["kernel"].IsDefined())
-		gCore.setKernel(gConfig["kernel"].as<std::string>());
-	if (gConfig["framesPerPosition"].IsDefined())
-		gCore.setFramesPerPosition(gConfig["framesPerPosition"].as<int>());
-	if (gConfig["framesPerState"].IsDefined())
-		gCore.setFramesPerState(gConfig["framesPerState"].as<int>());
-
-	// Load the instance
-	std::shared_ptr<Instance> instance = loadInstance();
-	gCore.setInstance(instance);
-	gCore.verifyConfiguration();
-
-	// Load the particles
-	std::shared_ptr<Particle[]> particles = loadParticles(instance);
-	gCore.setParticles(particles);
-
-	// Load the boxes
-	std::shared_ptr<Box[]> boxes = loadBoxes(instance);
-	gCore.setBoxes(boxes);
-
 	std::shared_ptr<float2[]> externalForceField;
 
 	float totalMass = 0.0f;
@@ -182,6 +200,50 @@ void loadConfig()
 	else {
 		externalForceField = std::shared_ptr<float2[]>(new float2[1]);
 	}
+
+	return externalForceField;
+}
+
+void loadConfig()
+{
+	std::string configPath = ConfigFileName;
+	if (gResume) {
+		spdlog::info("Resuming latest simulation");
+		configPath = OutputConfigFilePath.string();
+	}
+
+	spdlog::info("Loading configuration");
+	gConfig = YAML::LoadFile(configPath);
+
+	if (!gConfig["name"].IsDefined())
+		throw std::exception("name must be defined");
+
+	if (gConfig["kernel"].IsDefined())
+		gCore.setKernel(gConfig["kernel"].as<std::string>());
+	if (gConfig["framesPerPosition"].IsDefined())
+		gCore.setFramesPerPosition(gConfig["framesPerPosition"].as<int>());
+	if (gConfig["framesPerState"].IsDefined())
+		gCore.setFramesPerState(gConfig["framesPerState"].as<int>());
+
+	// Create the instance
+	std::shared_ptr<Instance> instance = createInstance();
+	gCore.setInstance(instance);
+	gCore.verifyConfiguration();
+
+	// Create the particles
+	std::shared_ptr<Particle[]> particles;
+	if (gResume)
+		particles = loadParticles(instance);
+	else
+		particles = createParticles(instance);
+	gCore.setParticles(particles);
+
+	// Create the boxes
+	std::shared_ptr<Box[]> boxes = createBoxes(instance);
+	gCore.setBoxes(boxes);
+
+	// Create the external force field
+	std::shared_ptr<float2[]> externalForceField = createForceField(instance, particles);
 	gCore.setExternalForceField(externalForceField);
 }
 
@@ -205,29 +267,54 @@ void createDirectories()
 	std::filesystem::create_directory(StateDataDirectory);
 }
 
-int main()
+void createLogger()
+{
+	auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt >();
+	auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(LogFilePath.string());
+	std::vector<spdlog::sink_ptr> sinks{ stdout_sink, file_sink };
+	auto logger = std::make_shared<spdlog::logger>("PhysSim", sinks.begin(), sinks.end());
+	spdlog::set_default_logger(logger);
+}
+
+int main(int argc, char* argv[])
 {
 	// Create a signal handler in order to stop the simulation
 	signal(SIGINT, signalHandler);
 
 	try {
+		cxxopts::Options options(argv[0], "Post processing and visualization of particle physics simulations");
+		options
+			.add_options()
+			("help", "Print help")
+			("r, resume", "Resume the latest simulation", cxxopts::value<bool>());
+
+		auto result = options.parse(argc, argv);
+
+		if (result.count("help")) {
+			std::cout << options.help() << std::endl;
+			exit(0);
+		}
+
+		if (result.count("resume"))
+			gResume = true;
+
 		// Create the output directory structure
-		createDirectories();
+		if (!gResume)
+			createDirectories();
 
-		// Initiate the logger
-		auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt >();
-		auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(LogFilePath.string());
-		std::vector<spdlog::sink_ptr> sinks{ stdout_sink, file_sink };
-		auto logger = std::make_shared<spdlog::logger>("PhysSim", sinks.begin(), sinks.end());
-		spdlog::set_default_logger(logger);
+		// Once the output folder exists we can initialize the logger
+		createLogger();
 
-		// Load the config
+		// Load the state from the latest run
 		loadConfig();
 		saveConfig();
 	}
+	catch (const cxxopts::OptionException& e) {
+		spdlog::error("Error parsing arguments: {}", e.what());
+		return -1;
+	}
 	catch (std::exception& e) {
 		spdlog::error("Error initializing simulation: {}", e.what());
-
 		return -1;
 	}
 
@@ -238,7 +325,6 @@ int main()
 	}
 	catch (std::exception& e) {
 		spdlog::error("Error running simulation: {}", e.what());
-
 		return -1;
 	}
 

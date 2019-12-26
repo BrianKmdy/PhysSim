@@ -81,11 +81,16 @@ void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* e
 	fout << data;
 }
 
-FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState):
+FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState, int startFrame):
 	FrameBuffer<Particle>(queueSize, nParticles, framesPerPosition),
 	framesPerPosition(framesPerPosition),
 	framesPerState(framesPerState)
 {
+	// XXX/bmoody Review if this is the best way to handle resuming, should this get added to the base class?
+	if (startFrame != 0) {
+		bufferIndex = startFrame;
+		frameIndex = startFrame;
+	}
 }
 
 void FrameBufferOut::nextFrame(std::shared_ptr<Particle[]>* frame)
@@ -328,6 +333,11 @@ void Core::setKernel(std::string kernelName)
 	this->kernelName = kernelName;
 }
 
+void Core::setFrame(int frame)
+{
+	this->frame = frame;
+}
+
 void Core::setFramesPerPosition(int framesPerPosition)
 {
 	this->framesPerPosition = framesPerPosition;
@@ -356,7 +366,7 @@ void Core::run()
 	int framesThisPeriod = 0;
 
 	// Start the frame buffer and write the initial configuration to disk
-	frameBuffer = std::make_shared<FrameBufferOut>(MAX_BUFFER_MEMORY / (static_cast<unsigned long long>(instance->nParticles) * sizeof(Particle)), instance->nParticles, framesPerPosition, framesPerState);
+	frameBuffer = std::make_shared<FrameBufferOut>(MAX_BUFFER_MEMORY / (static_cast<unsigned long long>(instance->nParticles) * sizeof(Particle)), instance->nParticles, framesPerPosition, framesPerState, frame);
 	frameBuffer->start();
 	writeToDisk();
 

@@ -38,7 +38,7 @@ void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* e
 class FrameBufferOut : public FrameBuffer<Particle>
 {
 public:
-	FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState);
+	FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState, int startFrame);
 
 	virtual void nextFrame(std::shared_ptr<Particle[]>* frame);
 	virtual void run();
@@ -69,6 +69,7 @@ public:
 	void setFramesPerState(int framesPerState);
 
 	void setKernel(std::string kernelName);
+	void setFrame(int frame);
 
 	void run();
 	void kill();
