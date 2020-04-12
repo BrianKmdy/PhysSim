@@ -42,6 +42,7 @@ __host__ void unInitializeCuda()
 #include <iostream>
 __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* particles, Box* boxes, float2* externalForceField, int kernel)
 {
+	// Reset all the boxes
 	for (int bId = 0; bId < instance->nBoxes; bId++) {
 		boxes[bId].mass = 0.0;
 		boxes[bId].centerMass = make_float2(0.0, 0.0);
@@ -49,6 +50,7 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 		boxes[bId].particleOffset = 0;
 	}
 
+	// Calculate center of mass and nParticles for each box
 	for (int pId = 0; pId < instance->nParticles; pId++) {
 		int bId = instance->getBoxIndex(particles[pId].position);;
 		if (bId >= instance->nBoxes) {
@@ -96,8 +98,11 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 			case Kernel::experimental:
 				experimental<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i], gExternalForceField[i]);
 				break;
-			default:
+			case Kernel::gravity:
 				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
+				break;
+			default:
+				throw std::exception("Invalid kernel");
 				break;
 		}
 

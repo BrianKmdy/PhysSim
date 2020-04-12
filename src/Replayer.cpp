@@ -317,7 +317,7 @@ bool Replayer::init()
 		}
 	}
 	else {
-		spdlog::error("Configuration file doesn't exist");
+		spdlog::error("Configuration file doesn't exist: {} - {}", configPath.string(), positionDirectory.string());
 
 		return false;
 	}
