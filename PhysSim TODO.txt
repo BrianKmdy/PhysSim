@@ -1,0 +1,14 @@
+Impement size
+Add collisions (And ability to set elasticity, so particles can clump or bounce off each other depending on situation)
+Make gravitational (And electrical) attraction not bug out when particles get infinitely close
+Add electrical and magnet forces (Charge, electrical and magnetic fields)
+Make astronimcal scale functional
+Add ability to have all orbiting entities not attracted to each other, just to high mass entity in center (star or galactic center)
+Add third dimension
+Add ability to render in slower than real time and output to video that plays at real time (or faster/slower than real time)
+Add models for planets, household objects, atoms
+Add rendered scenery (Background nebula, simple backdrops, solar system, etc)
+Add interface to view numerical stats
+Make scenarios programmable in python (using boost)
+Ability to add fields/Charge distributions (And a way to visualize them in the rendered image if the user wants)
+Add ticks per frame

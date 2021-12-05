@@ -1,0 +1,13 @@
+Default/
+PhysSim
+lib
+_PhysSim/
+.vs/
+.settings/
+processor/
+project/
+.cproject
+.project
+CppProperties.json
+ffmpeg.exe
+ParticleSimulation.mp4
