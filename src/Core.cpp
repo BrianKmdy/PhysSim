@@ -197,7 +197,7 @@ Core::~Core()
 void Core::verifyConfiguration()
 {
 	if (!instance)
-		throw std::exception("No instance set");
+		throw std::runtime_error("No instance set");
 
 	spdlog::info("---");
 	spdlog::info("Config settings");
@@ -284,7 +284,7 @@ void Core::verifyConfiguration()
 	spdlog::info("---");
 
 	if (!errors.empty())
-		throw std::exception("Invalid configuration");
+		throw std::runtime_error("Invalid configuration");
 }
 
 std::shared_ptr<Instance> Core::getInstance()
