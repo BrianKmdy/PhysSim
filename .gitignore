@@ -11,3 +11,6 @@ project/
 CppProperties.json
 ffmpeg.exe
 ParticleSimulation.mp4
+build
+.vscode
+.vs

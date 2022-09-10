@@ -1,4 +1,4 @@
-#include "types.cuh"
+#include "Types.cuh"
 
 // int2 int2
 __host__ __device__ int2 operator+(const int2& a, const int2& b) {

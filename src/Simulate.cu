@@ -102,7 +102,7 @@ __host__ std::chrono::milliseconds simulate(Instance* instance, Particle* partic
 				gravity<<<blockSize, nThreads>>>(i, deviceBatchSize, endIndex, *instance, gDeviceParticles[i], gDeviceBoxes[i]);
 				break;
 			default:
-				throw std::exception("Invalid kernel");
+				throw std::runtime_error("Invalid kernel");
 				break;
 		}
 
