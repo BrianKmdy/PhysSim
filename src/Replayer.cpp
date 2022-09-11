@@ -29,7 +29,7 @@ int nParticles;
 float worldSize = 131072.0f;
 float renderWorldSize = 100.0f;
 
-void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
+void DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf("GL Error: %s\n", message);
 }
@@ -540,7 +540,7 @@ void Replayer::update()
 	glm::vec3 look(0., 0., 0.);
 	glm::vec3 up(0, 1., 0.);
 
-	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize * 0.55));
+	glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(renderWorldSize / worldSize * 0.55));
 	glm::mat4 view = glm::lookAt(eye, look, up);
 	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
 

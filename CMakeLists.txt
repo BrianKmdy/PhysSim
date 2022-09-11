@@ -3,41 +3,47 @@ cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+include("cmake/replayer.cmake")
 
-project(PhysSim LANGUAGES CXX CUDA)
-enable_language(CUDA)
+if (UNIX)
+    set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(CUDAToolkit)
-find_package(yaml-cpp)
-find_package(spdlog REQUIRED)
+    project(Simulator LANGUAGES CXX CUDA)
+    enable_language(CUDA)
 
-include_directories(include "/usr/local/cuda-11.7/include/")
+    find_package(CUDAToolkit)
+    find_package(yaml-cpp)
+    find_package(spdlog REQUIRED)
 
-# TODO/bmoody Not used yet, need to add support for replayer
-file(GLOB_RECURSE
-    sources
-    src/*
-    include/*)
+    include_directories(include "/usr/local/cuda-11.7/include/")
 
-add_executable(simulator
-    include/Paths.h
-    include/Types.h
-    include/Simulate.cuh
-    include/Operations.cuh
-    src/InitSimulator.cpp
-    src/Paths.cpp
-    src/Types.cpp
-    src/Core.cpp
-    src/Simulate.cu
-    src/Operations.cu
-)
+    # TODO/bmoody Not used yet, need to add support for replayer
+    file(GLOB_RECURSE
+        sources
+        src/*
+        include/*)
 
-add_library(cxxopts INTERFACE)
-target_include_directories(cxxopts INTERFACE .)
+    add_executable(simulator
+        include/Paths.h
+        include/Types.h
+        include/Simulate.cuh
+        include/Operations.cuh
+        src/InitSimulator.cpp
+        src/Paths.cpp
+        src/Types.cpp
+        src/Core.cpp
+        src/Simulate.cu
+        src/Operations.cu
+    )
 
-target_link_libraries(simulator PUBLIC
-    yaml-cpp
-    spdlog::spdlog
-)
+    add_library(cxxopts INTERFACE)
+    target_include_directories(cxxopts INTERFACE .)
+
+    target_link_libraries(simulator PUBLIC
+        yaml-cpp
+        spdlog::spdlog
+    )
+endif()
+
+
