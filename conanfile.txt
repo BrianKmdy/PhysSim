@@ -1,0 +1,10 @@
+[requires]
+glew/2.2.0
+cxxopts/3.0.0
+yaml-cpp/0.7.0
+spdlog/1.10.0
+glm/cci.20220420
+sdl/2.24.0
+
+[generators]
+cmake
