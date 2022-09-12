@@ -29,11 +29,4 @@ RUN choco install -y conan
 RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System'
 
 WORKDIR c:\project
-CMD "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass 
-
-# Install dependencies and build
- #CMD if not exist build-Debug mkdir build-Debug `
- #    && cd build-Debug `
- #    && conan install .. -s build_type=Debug --build missing `
- #    && cmake .. `
- #    && cmake --build . --config Debug
+ENTRYPOINT ["cmd", "/S", "/C"]
