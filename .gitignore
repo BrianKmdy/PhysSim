@@ -1,8 +1,8 @@
-.vs
-.vscode
-build
-notes
-tools
+/.vs
+/.vscode
+/build
+/notes
+/tools
 
 # Visual studio
 *.vcxproj*
