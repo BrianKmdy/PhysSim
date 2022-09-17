@@ -1,7 +1,10 @@
 #include <cstdio>
 #include <algorithm>
 #include <fcntl.h>
-#include <io.h>
+
+#ifdef _WIN32
+	#include <io.h>
+#endif
 
 #include "Paths.h"
 #include "Types.h"
@@ -9,7 +12,7 @@
 
 #include "SDL.h"
 #include "GL/glew.h"
-#include "gl/gl.h"
+#include "GL/gl.h"
 
 SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
@@ -29,7 +32,7 @@ int nParticles;
 float worldSize = 131072.0f;
 float renderWorldSize = 100.0f;
 
-void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
+void DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf("GL Error: %s\n", message);
 }
@@ -444,7 +447,9 @@ bool Replayer::init()
 	// glEnable(GL_ALPHA_TEST);
 	// glAlphaFunc(GL_EQUAL, 1.0);
 
+	// XXX/bmoody Add support for linux pipe to video
 	if (outputToVideo) {
+#ifdef _WIN32
 		outputVideoPipe = _popen(std::string("ffmpeg.exe -y -f rawvideo -s " +
 								 std::to_string(width) + "x" + std::to_string(height) +
 			                     " -pix_fmt rgb24 -r 60 -i - -vcodec " +
@@ -452,6 +457,9 @@ bool Replayer::init()
 			                     " -vf vflip -an latest." +
 		                         format).c_str(), "w");
 		_setmode(_fileno(outputVideoPipe), _O_BINARY);
+#else
+		spdlog::error("Output to video not currently supported on this platform");
+#endif
 	}
 
 	return true;
@@ -540,7 +548,7 @@ void Replayer::update()
 	glm::vec3 look(0., 0., 0.);
 	glm::vec3 up(0, 1., 0.);
 
-	glm::mat4 model = glm::scale(glm::vec3(renderWorldSize / worldSize * 0.55));
+	glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(renderWorldSize / worldSize * 0.55));
 	glm::mat4 view = glm::lookAt(eye, look, up);
 	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
 
@@ -597,8 +605,13 @@ void Replayer::shutdown()
 	glDeleteBuffers(1, &VBOCurrent);
 	glDeleteBuffers(1, &VBONext);
 
+	// XXX/bmoody Add support for linux pipe to video
 	if (outputToVideo) {
+#ifdef _WIN32
 		_pclose(outputVideoPipe);
+#else
+		spdlog::error("Output to video not currently supported on this platform");
+#endif
 	}
 
 	if (m_pCompanionWindow) {

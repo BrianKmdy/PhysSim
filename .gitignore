@@ -1,13 +1,16 @@
-Default/
-PhysSim
-lib
-_PhysSim/
-.vs/
-.settings/
-processor/
-project/
-.cproject
-.project
-CppProperties.json
-ffmpeg.exe
-ParticleSimulation.mp4
+.vs
+.vscode
+build
+notes
+tools
+
+# Visual studio
+*.vcxproj*
+
+# cmake
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+
+# Misc
+notes.md

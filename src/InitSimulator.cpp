@@ -65,7 +65,7 @@ std::shared_ptr<Particle[]> loadParticles(std::shared_ptr<Instance> instance)
 	spdlog::info("Loading saved particle state from disk");
 
 	if (!std::filesystem::exists(StateDataDirectory))
-		throw std::exception("Unable to find saved state directory");
+		throw std::runtime_error("Unable to find saved state directory");
 
 	// Create the particles
 	std::shared_ptr<Particle[]> particles = std::shared_ptr<Particle[]>(new Particle[instance->nParticles]);
@@ -82,7 +82,7 @@ std::shared_ptr<Particle[]> loadParticles(std::shared_ptr<Instance> instance)
 	}
 
 	if (latestFrame == 0)
-		throw std::exception("No state files found");
+		throw std::runtime_error("No state files found");
 
 	spdlog::info("Latest state file found: {}", latestState);
 
@@ -216,7 +216,7 @@ void loadConfig()
 	gConfig = YAML::LoadFile(configPath);
 
 	if (!gConfig["name"].IsDefined())
-		throw std::exception("name must be defined");
+		throw std::runtime_error("name must be defined");
 
 	if (gConfig["kernel"].IsDefined())
 		gCore.setKernel(gConfig["kernel"].as<std::string>());
@@ -260,7 +260,7 @@ void saveConfig()
 void createDirectories()
 {
 	if (std::filesystem::exists(OutputDirectory))
-		throw std::exception("output directory already exists");
+		throw std::runtime_error("output directory already exists");
 
 	std::filesystem::create_directory(OutputDirectory);
 	std::filesystem::create_directory(PositionDataDirectory);
