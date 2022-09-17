@@ -23,10 +23,16 @@ RUN `
     # Cleanup
     && del /q vs_buildtools.exe
 
-# Install chocolatey, conan, and cmake
+# Install chocolatey and dependencies, set git bash as the new shell
 RUN @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
-RUN choco install -y conan
-RUN choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+
+RUN choco install cuda --version 11.7.1.51694 -y
+RUN choco install conan --version 1.52.0 -y
+RUN choco install cmake --version 3.24.2 -y --installargs 'ADD_CMAKE_TO_PATH=System'
+RUN choco install git --version 2.37.3 -y
+
+RUN setx path "C:\\Program Files\\Git\\bin;%path%"
+RUN xcopy /s "c:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\extras\visual_studio_integration\MSBuildExtensions" "c:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\BuildCustomizations"
 
 WORKDIR c:\project
-ENTRYPOINT ["cmd", "/S", "/C"]
+ENTRYPOINT ["bash.exe"]

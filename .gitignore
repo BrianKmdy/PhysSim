@@ -11,3 +11,6 @@ tools
 CMakeFiles
 CMakeCache.txt
 cmake_install.cmake
+
+# Misc
+notes.md

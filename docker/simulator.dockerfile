@@ -1,11 +1,14 @@
-FROM nvidia/cuda:11.7.0-devel-ubuntu22.04
+FROM build-linux:latest AS builder
 
-RUN apt update\
- && apt -y install g++ cmake libyaml-cpp-dev libspdlog-dev libcxxopts-dev
+WORKDIR /project
+COPY . .
+RUN ./build.sh --clean Release
 
-COPY . /project
-WORKDIR /project/build
-RUN cmake -DCMAKE_CUDA_ARCHITECTURES=$cuda_arch .. && cmake --build .
 
-WORKDIR /simulation
-CMD /project/build/simulator
+FROM nvidia/cuda:11.7.0-runtime-ubuntu22.04
+
+RUN apt update &&\
+    apt install -y vim
+
+WORKDIR /app
+COPY --from=builder /project/build/Release/bin/simulator .
