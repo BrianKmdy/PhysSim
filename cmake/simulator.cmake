@@ -1,7 +1,4 @@
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# find_package(CUDAToolkit)
 enable_language(CUDA)
 if (UNIX)
     include_directories("/usr/local/cuda-11.7/include/")
