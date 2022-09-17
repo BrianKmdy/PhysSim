@@ -1,19 +1,13 @@
-
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-find_package(CUDAToolkit)
+# find_package(CUDAToolkit)
 enable_language(CUDA)
+if (UNIX)
+    include_directories("/usr/local/cuda-11.7/include/")
+endif ()
 
-if(UNIX)
-    include_directories(include "/usr/local/cuda-11.7/include/")
-endif()
-
-# TODO/bmoody Not used yet, need to add support for replayer
-file(GLOB_RECURSE
-    sources
-    src/*
-    include/*)
+include_directories(include)
 
 add_executable(simulator
     include/Paths.h

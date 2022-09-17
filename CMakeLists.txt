@@ -8,5 +8,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
+include("cmake/simulator.cmake")
 include("cmake/replayer.cmake")
-include("cmake/simulator-docker.cmake")
