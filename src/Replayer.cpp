@@ -398,7 +398,8 @@ bool Replayer::init()
 	GLenum nGlewError = glewInit();
 	if (nGlewError != GLEW_OK)
 	{
-		spdlog::error("{} - Error initializing GLEW! {}", __FUNCTION__, glewGetErrorString(nGlewError));
+		// spdlog::error("{} - Error initializing GLEW! {}", __FUNCTION__, glewGetErrorString(nGlewError));
+		spdlog::error("{} - Error initializing GLEW!", __FUNCTION__);
 		return false;
 	}
 	glGetError(); // to clear the error caused deep in GLEW
