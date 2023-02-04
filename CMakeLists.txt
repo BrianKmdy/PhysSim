@@ -21,3 +21,4 @@ include_directories(${OPENGL_INCLUDE_DIR})
 
 include(cmake/simulator.cmake)
 include(cmake/replayer.cmake)
+include(cmake/pcat.cmake)
