@@ -96,7 +96,6 @@ Shader::Shader(std::filesystem::path vertexPath, std::filesystem::path fragmentP
 	checkCompileErrors(ID, "Program");
 
 	spdlog::info("Loaded shader: {} and {}", vertexPath.c_str(), fragmentPath.c_str());
-	spdlog::info("Shader ID: {}", ID);
 
 	// delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(vertex);
@@ -233,6 +232,7 @@ Replayer::Replayer():
 	frameStep(1),
 	speed(1),
 	interFrames(1),
+	dimensions(0),
 	frame(0),
 	currentFrame(nullptr),
 	nextFrame(nullptr),
@@ -310,7 +310,6 @@ bool Replayer::init()
 	spdlog::info("frameStep: {}", frameStep);
 	spdlog::info("interFrames: {}", interFrames);
 
-	uint64_t dimensions;
 	spdlog::info("Loading configuration");
 	if (std::filesystem::exists(configPath) && std::filesystem::exists(positionDirectory)) {
 		gConfig = YAML::LoadFile(configPath.string());
@@ -429,49 +428,7 @@ bool Replayer::init()
 	shader = std::make_shared<Shader>(shaderPath / "shader.vs", shaderPath / "shader.fs"); // you can name your shader files however you like
 	controls = std::make_shared<Shader>(shaderPath / "controls.vs", shaderPath / "controls.fs"); // you can name your shader files however you like
 
-	
-	// Set up the view matrix
-	glm::vec3 eye(0., 0., 1.0f);
-	glm::vec3 look(0., 0., 0.);
-	glm::vec3 up(0, 1., 0.);
-	glm::mat4 view = glm::lookAt(eye, look, up);
-
-	std::cout << dimensions << std::endl;
-	glm::mat4 model = glm::mat4(1.0f);
-	// glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100000.0f);
-	glm::mat4 projection = glm::ortho(-(dimensions / 2.0), dimensions / 2.0, -(dimensions / 2.0), dimensions / 2.0, 0., 1.);
-
-
-
-	// Use the shader program
-	shader->use();
-	shader->setMatrix("model", model);
-	shader->setMatrix("view", view);
-	shader->setMatrix("projection", projection);
-
-	// Generate the vertex array for the particles
-	glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBOCurrent);
-	glGenBuffers(1, &VBONext);
-
-	// Generate the vertex array for the controls
-	glGenVertexArrays(1, &VAOControls);
-	glGenBuffers(1, &VBOControls);
-
-	glm::vec3 progressBarData[2] = { {0, 0, 0}, {2, 0, 0} };
-	glBindVertexArray(VAOControls);
-	glBindBuffer(GL_ARRAY_BUFFER, VBOControls);
-	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(glm::vec3), progressBarData, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glGenFramebuffers(1, &glFrameBuffer);
-
-	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-	// glBindVertexArray(0);
-	glViewport(0, 0, width, height);
+	initGL();
 
 	// glEnable(GL_ALPHA_TEST);
 	// glAlphaFunc(GL_EQUAL, 1.0);
@@ -534,9 +491,8 @@ void Replayer::run()
 		if (frame % interFrames == 0) {
 			if (frameBuffer->hasFramesBuffered()) {
 				currentFrame = nextFrame;
-				spdlog::info("Getting next frame: {}", frame);
 				frameBuffer->nextFrame(&nextFrame);
-				update();
+				updateVAO();
 				refresh();
 				frame++;
 			}
@@ -557,14 +513,56 @@ void Replayer::reset()
 	frameBuffer->nextFrame(&nextFrame);
 }
 
-void Replayer::update()
+void Replayer::initGL()
 {
-	spdlog::info("Updating: {}", frame);
+	// Set up the view matrix
+	glm::vec3 eye(0., 0., 1.0f);
+	glm::vec3 look(0., 0., 0.);
+	glm::vec3 up(0, 1., 0.);
+	glm::mat4 view = glm::lookAt(eye, look, up);
+
+	std::cout << dimensions << std::endl;
+	glm::mat4 model = glm::mat4(1.0f);
+	// glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100000.0f);
+	glm::mat4 projection = glm::ortho(-(dimensions / 2.0), dimensions / 2.0, -(dimensions / 2.0), dimensions / 2.0, 0., 1.);
+
+	// Use the shader program
+	shader->use();
+	shader->setMatrix("model", model);
+	shader->setMatrix("view", view);
+	shader->setMatrix("projection", projection);
+
+	// Generate the vertex array for the particles
+	glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBOCurrent);
+	glGenBuffers(1, &VBONext);
+
+	// Generate the vertex array for the controls
+	glGenVertexArrays(1, &VAOControls);
+	glGenBuffers(1, &VBOControls);
+
+	glm::vec3 progressBarData[2] = { {0, 0, 0}, {2, 0, 0} };
+	glBindVertexArray(VAOControls);
+	glBindBuffer(GL_ARRAY_BUFFER, VBOControls);
+	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(glm::vec3), progressBarData, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glGenFramebuffers(1, &glFrameBuffer);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	// glBindVertexArray(0);
+	glViewport(0, 0, width, height);
+}
+
+void Replayer::updateVAO()
+{
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBOCurrent);
 	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(glm::vec3), currentFrame.get(), GL_STATIC_DRAW);
-	spdlog::info("x: {}, y: {}, z: {}", currentFrame.get()[0].x, currentFrame.get()[0].y, currentFrame.get()[0].z);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -601,9 +599,6 @@ void Replayer::refresh()
 	glBindVertexArray(VAO);
 	glPointSize(particleRadius);
 
-	int programId;
-	glGetIntegerv(GL_CURRENT_PROGRAM, &programId);
-	spdlog::info("Current shader program: {}", programId);
 	glDrawArrays(GL_POINTS, 0, nParticles);
 
 	// SwapWindow
