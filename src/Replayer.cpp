@@ -18,8 +18,8 @@ SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
 bool m_bVblank = true;
 
-int width = 2560;
-int height = 1440;
+int width = 1000;
+int height = 800;
 
 glm::vec3* points = nullptr;
 
@@ -30,7 +30,7 @@ std::map<int, std::string> positionFiles;
 int nParticles;
 
 float worldSize = 131072.0f;
-float renderWorldSize = 100.0f;
+float renderWorldSize = 1.0f;
 
 void DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
@@ -94,6 +94,9 @@ Shader::Shader(std::filesystem::path vertexPath, std::filesystem::path fragmentP
 	glAttachShader(ID, fragment);
 	glLinkProgram(ID);
 	checkCompileErrors(ID, "Program");
+
+	spdlog::info("Loaded shader: {} and {}", vertexPath.c_str(), fragmentPath.c_str());
+	spdlog::info("Shader ID: {}", ID);
 
 	// delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(vertex);
@@ -203,6 +206,8 @@ void FrameBufferIn::run()
 
 				for (int i = 0; i < nParticles; i++) {
 					positionFromFile(&positionFile, &positions[i].x, &positions[i].y);
+					positions[i].z = 0.0f;
+					// std::cout << positions[i].x << " " << positions[i].y << std::endl;
 				}
 				positionFile.close();
 
@@ -305,6 +310,7 @@ bool Replayer::init()
 	spdlog::info("frameStep: {}", frameStep);
 	spdlog::info("interFrames: {}", interFrames);
 
+	uint64_t dimensions;
 	spdlog::info("Loading configuration");
 	if (std::filesystem::exists(configPath) && std::filesystem::exists(positionDirectory)) {
 		gConfig = YAML::LoadFile(configPath.string());
@@ -318,6 +324,8 @@ bool Replayer::init()
 			std::string stringPath = path.path().string();
 			positionFiles[std::stoi(stringPath.substr(stringPath.find('-') + 1, stringPath.find('.')))] = stringPath;
 		}
+
+		dimensions = gConfig["dimensions"].as<uint64_t>();
 	}
 	else {
 		spdlog::error("Configuration file doesn't exist: {} - {}", configPath.string(), positionDirectory.string());
@@ -377,7 +385,7 @@ bool Replayer::init()
 		flags |= SDL_WINDOW_HIDDEN;
 	else
 		flags |= SDL_WINDOW_SHOWN;
-	m_pCompanionWindow = SDL_CreateWindow("Simulation", 0, 0, width, height, flags);
+	m_pCompanionWindow = SDL_CreateWindow("Simulation", 2000, 400, width, height, flags);
 	if (m_pCompanionWindow == NULL)
 	{
 		spdlog::error("{} - Window could not be created! SDL Error: {}", __FUNCTION__, SDL_GetError());
@@ -420,6 +428,26 @@ bool Replayer::init()
 	// ------------------------------------
 	shader = std::make_shared<Shader>(shaderPath / "shader.vs", shaderPath / "shader.fs"); // you can name your shader files however you like
 	controls = std::make_shared<Shader>(shaderPath / "controls.vs", shaderPath / "controls.fs"); // you can name your shader files however you like
+
+	
+	// Set up the view matrix
+	glm::vec3 eye(0., 0., 1.0f);
+	glm::vec3 look(0., 0., 0.);
+	glm::vec3 up(0, 1., 0.);
+	glm::mat4 view = glm::lookAt(eye, look, up);
+
+	std::cout << dimensions << std::endl;
+	glm::mat4 model = glm::mat4(1.0f);
+	// glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100000.0f);
+	glm::mat4 projection = glm::ortho(-(dimensions / 2.0), dimensions / 2.0, -(dimensions / 2.0), dimensions / 2.0, 0., 1.);
+
+
+
+	// Use the shader program
+	shader->use();
+	shader->setMatrix("model", model);
+	shader->setMatrix("view", view);
+	shader->setMatrix("projection", projection);
 
 	// Generate the vertex array for the particles
 	glGenVertexArrays(1, &VAO);
@@ -506,6 +534,7 @@ void Replayer::run()
 		if (frame % interFrames == 0) {
 			if (frameBuffer->hasFramesBuffered()) {
 				currentFrame = nextFrame;
+				spdlog::info("Getting next frame: {}", frame);
 				frameBuffer->nextFrame(&nextFrame);
 				update();
 				refresh();
@@ -530,10 +559,12 @@ void Replayer::reset()
 
 void Replayer::update()
 {
+	spdlog::info("Updating: {}", frame);
 	glBindVertexArray(VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBOCurrent);
 	glBufferData(GL_ARRAY_BUFFER, nParticles * sizeof(glm::vec3), currentFrame.get(), GL_STATIC_DRAW);
+	spdlog::info("x: {}, y: {}, z: {}", currentFrame.get()[0].x, currentFrame.get()[0].y, currentFrame.get()[0].z);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(0);
@@ -543,20 +574,6 @@ void Replayer::update()
 
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(1);
-
-	// Set up the view matrix
-	glm::vec3 eye(0., 0., 1000.0f);
-	glm::vec3 look(0., 0., 0.);
-	glm::vec3 up(0, 1., 0.);
-
-	glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(renderWorldSize / worldSize * 0.55));
-	glm::mat4 view = glm::lookAt(eye, look, up);
-	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
-
-	// XXX/bmoody Don't have to set these every frame
-	shader->setMatrix("model", model);
-	shader->setMatrix("view", view);
-	shader->setMatrix("projection", projection);
 }
 
 void Replayer::refresh()
@@ -583,6 +600,10 @@ void Replayer::refresh()
 
 	glBindVertexArray(VAO);
 	glPointSize(particleRadius);
+
+	int programId;
+	glGetIntegerv(GL_CURRENT_PROGRAM, &programId);
+	spdlog::info("Current shader program: {}", programId);
 	glDrawArrays(GL_POINTS, 0, nParticles);
 
 	// SwapWindow
