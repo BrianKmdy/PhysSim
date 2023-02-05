@@ -18,8 +18,8 @@ SDL_Window* m_pCompanionWindow;
 SDL_GLContext m_pContext;
 bool m_bVblank = true;
 
-int width = 1000;
-int height = 800;
+int width = 2560;
+int height = 1440;
 
 glm::vec3* points = nullptr;
 
@@ -28,9 +28,6 @@ YAML::Node gConfig;
 std::map<int, std::string> positionFiles;
 
 int nParticles;
-
-float worldSize = 131072.0f;
-float renderWorldSize = 1.0f;
 
 void DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
@@ -94,8 +91,6 @@ Shader::Shader(std::filesystem::path vertexPath, std::filesystem::path fragmentP
 	glAttachShader(ID, fragment);
 	glLinkProgram(ID);
 	checkCompileErrors(ID, "Program");
-
-	spdlog::info("Loaded shader: {} and {}", vertexPath.c_str(), fragmentPath.c_str());
 
 	// delete the shaders as they're linked into our program now and no longer necessary
 	glDeleteShader(vertex);
@@ -384,7 +379,7 @@ bool Replayer::init()
 		flags |= SDL_WINDOW_HIDDEN;
 	else
 		flags |= SDL_WINDOW_SHOWN;
-	m_pCompanionWindow = SDL_CreateWindow("Simulation", 2000, 400, width, height, flags);
+	m_pCompanionWindow = SDL_CreateWindow("Simulation", 0, 0, width, height, flags);
 	if (m_pCompanionWindow == NULL)
 	{
 		spdlog::error("{} - Window could not be created! SDL Error: {}", __FUNCTION__, SDL_GetError());
