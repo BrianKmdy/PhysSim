@@ -67,8 +67,8 @@ private:
 	void initGL();
 	void handleInput();
 	void reset();
-	void updateVAO();
-	void refresh();
+	void updateVAOData();
+	void redraw();
 
 	bool alive;
 

@@ -492,14 +492,14 @@ void Replayer::run()
 			if (frameBuffer->hasFramesBuffered()) {
 				currentFrame = nextFrame;
 				frameBuffer->nextFrame(&nextFrame);
-				updateVAO();
-				refresh();
+				updateVAOData();
+				redraw();
 				frame++;
 			}
 		}
 		else {
 			if (currentFrame && nextFrame) {
-				refresh();
+				redraw();
 				frame++;
 			}
 		}
@@ -520,11 +520,16 @@ void Replayer::initGL()
 	glm::vec3 look(0., 0., 0.);
 	glm::vec3 up(0, 1., 0.);
 	glm::mat4 view = glm::lookAt(eye, look, up);
-
-	std::cout << dimensions << std::endl;
 	glm::mat4 model = glm::mat4(1.0f);
-	// glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100000.0f);
-	glm::mat4 projection = glm::ortho(-(dimensions / 2.0), dimensions / 2.0, -(dimensions / 2.0), dimensions / 2.0, 0., 1.);
+
+	// Set up the projection matrix
+	glm::mat4 projection;
+	double halfDimension = dimensions / 2.0;
+	double aspectRatio = static_cast<double>(width) / static_cast<double>(height);
+	if (aspectRatio > 1.0)
+		projection = glm::ortho(-halfDimension * aspectRatio, halfDimension * aspectRatio, -halfDimension, halfDimension, 0., 1.);
+	else
+		projection = glm::ortho(-halfDimension, halfDimension, -halfDimension / aspectRatio, halfDimension / aspectRatio, 0., 1.);
 
 	// Use the shader program
 	shader->use();
@@ -557,7 +562,7 @@ void Replayer::initGL()
 	glViewport(0, 0, width, height);
 }
 
-void Replayer::updateVAO()
+void Replayer::updateVAOData()
 {
 	glBindVertexArray(VAO);
 
@@ -574,7 +579,7 @@ void Replayer::updateVAO()
 	glEnableVertexAttribArray(1);
 }
 
-void Replayer::refresh()
+void Replayer::redraw()
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
