@@ -9,6 +9,7 @@
 
 #include "spdlog/spdlog.h"
 #include "glm/ext.hpp"
+#include "GL/glew.h"
 
 // Base shader class code from https://learnopengl.com/Getting-started/Shaders
 class Shader
@@ -63,19 +64,21 @@ public:
 	void shutdown();
 
 private:
+	void initGL();
 	void handleInput();
 	void reset();
-	void update();
-	void refresh();
+	void updateVAOData();
+	void redraw();
 
 	bool alive;
 
 	std::filesystem::path shaderPath;
 	std::filesystem::path sceneDirectory;
 
-	int frameStep;
-	int speed;
-	int interFrames;
+	uint32_t frameStep;
+	uint32_t speed;
+	uint32_t interFrames;
+	uint32_t dimensions;
 
 	int frame;
 
@@ -87,16 +90,16 @@ private:
 	std::shared_ptr<Shader> shader;
 	std::shared_ptr<Shader> controls;
 
-	unsigned int VBOCurrent;
-	unsigned int VBONext;
-	unsigned int VAO;
+	GLuint VBOCurrent;
+	GLuint VBONext;
+	GLuint VAO;
 
-	unsigned int VBOControls;
-	unsigned int VAOControls;
+	GLuint VBOControls;
+	GLuint VAOControls;
 
 	float particleRadius;
 
-	unsigned int glFrameBuffer;
+	GLuint glFrameBuffer;
 
 	bool outputToVideo;
 	FILE* outputVideoPipe;

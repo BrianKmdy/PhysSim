@@ -9,5 +9,6 @@ layout (location = 1) in vec3 next;
 void main()
 {
     vec3 delta = next - current;
-    gl_Position = projection * view * model * vec4(current + (delta * time), 1.0);
+    vec3 pos = current + delta * time;
+    gl_Position = projection * view * model * vec4(pos, 1.0);
 }

@@ -9,7 +9,7 @@
 int main(int argc, char* argv[])
 {
 	Replayer replayer;
-	replayer.setShaderPath(std::filesystem::path(argv[0]).remove_filename());
+	replayer.setShaderPath(std::filesystem::path(argv[0]).remove_filename() / "shaders");
 
 	// Parse command line arguments
 	try {

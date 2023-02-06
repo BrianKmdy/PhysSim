@@ -19,4 +19,9 @@ add_executable(simulator
     src/Operations.cu
 )
 
-target_link_libraries(simulator ${CONAN_LIBS})
+target_link_libraries(simulator
+    PRIVATE
+        cxxopts::cxxopts
+        yaml-cpp
+        spdlog::spdlog spdlog::spdlog_header_only
+)

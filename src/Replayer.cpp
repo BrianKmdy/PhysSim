@@ -29,9 +29,6 @@ std::map<int, std::string> positionFiles;
 
 int nParticles;
 
-float worldSize = 131072.0f;
-float renderWorldSize = 100.0f;
-
 void DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf("GL Error: %s\n", message);
@@ -203,6 +200,8 @@ void FrameBufferIn::run()
 
 				for (int i = 0; i < nParticles; i++) {
 					positionFromFile(&positionFile, &positions[i].x, &positions[i].y);
+					positions[i].z = 0.0f;
+					// std::cout << positions[i].x << " " << positions[i].y << std::endl;
 				}
 				positionFile.close();
 
@@ -228,6 +227,7 @@ Replayer::Replayer():
 	frameStep(1),
 	speed(1),
 	interFrames(1),
+	dimensions(0),
 	frame(0),
 	currentFrame(nullptr),
 	nextFrame(nullptr),
@@ -318,6 +318,8 @@ bool Replayer::init()
 			std::string stringPath = path.path().string();
 			positionFiles[std::stoi(stringPath.substr(stringPath.find('-') + 1, stringPath.find('.')))] = stringPath;
 		}
+
+		dimensions = gConfig["dimensions"].as<uint64_t>();
 	}
 	else {
 		spdlog::error("Configuration file doesn't exist: {} - {}", configPath.string(), positionDirectory.string());
@@ -398,7 +400,8 @@ bool Replayer::init()
 	GLenum nGlewError = glewInit();
 	if (nGlewError != GLEW_OK)
 	{
-		spdlog::error("{} - Error initializing GLEW! {}", __FUNCTION__, glewGetErrorString(nGlewError));
+		// spdlog::error("{} - Error initializing GLEW! {}", __FUNCTION__, glewGetErrorString(nGlewError));
+		spdlog::error("{} - Error initializing GLEW!", __FUNCTION__);
 		return false;
 	}
 	glGetError(); // to clear the error caused deep in GLEW
@@ -420,29 +423,7 @@ bool Replayer::init()
 	shader = std::make_shared<Shader>(shaderPath / "shader.vs", shaderPath / "shader.fs"); // you can name your shader files however you like
 	controls = std::make_shared<Shader>(shaderPath / "controls.vs", shaderPath / "controls.fs"); // you can name your shader files however you like
 
-	// Generate the vertex array for the particles
-	glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBOCurrent);
-	glGenBuffers(1, &VBONext);
-
-	// Generate the vertex array for the controls
-	glGenVertexArrays(1, &VAOControls);
-	glGenBuffers(1, &VBOControls);
-
-	glm::vec3 progressBarData[2] = { {0, 0, 0}, {2, 0, 0} };
-	glBindVertexArray(VAOControls);
-	glBindBuffer(GL_ARRAY_BUFFER, VBOControls);
-	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(glm::vec3), progressBarData, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glGenFramebuffers(1, &glFrameBuffer);
-
-	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-	// glBindVertexArray(0);
-	glViewport(0, 0, width, height);
+	initGL();
 
 	// glEnable(GL_ALPHA_TEST);
 	// glAlphaFunc(GL_EQUAL, 1.0);
@@ -506,14 +487,14 @@ void Replayer::run()
 			if (frameBuffer->hasFramesBuffered()) {
 				currentFrame = nextFrame;
 				frameBuffer->nextFrame(&nextFrame);
-				update();
-				refresh();
+				updateVAOData();
+				redraw();
 				frame++;
 			}
 		}
 		else {
 			if (currentFrame && nextFrame) {
-				refresh();
+				redraw();
 				frame++;
 			}
 		}
@@ -527,7 +508,56 @@ void Replayer::reset()
 	frameBuffer->nextFrame(&nextFrame);
 }
 
-void Replayer::update()
+void Replayer::initGL()
+{
+	// Set up the view matrix
+	glm::vec3 eye(0., 0., 1.0f);
+	glm::vec3 look(0., 0., 0.);
+	glm::vec3 up(0, 1., 0.);
+	glm::mat4 view = glm::lookAt(eye, look, up);
+	glm::mat4 model = glm::mat4(1.0f);
+
+	// Set up the projection matrix
+	glm::mat4 projection;
+	double halfDimension = dimensions / 2.0;
+	double aspectRatio = static_cast<double>(width) / static_cast<double>(height);
+	if (aspectRatio > 1.0)
+		projection = glm::ortho(-halfDimension * aspectRatio, halfDimension * aspectRatio, -halfDimension, halfDimension, 0., 1.);
+	else
+		projection = glm::ortho(-halfDimension, halfDimension, -halfDimension / aspectRatio, halfDimension / aspectRatio, 0., 1.);
+
+	// Use the shader program
+	shader->use();
+	shader->setMatrix("model", model);
+	shader->setMatrix("view", view);
+	shader->setMatrix("projection", projection);
+
+	// Generate the vertex array for the particles
+	glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBOCurrent);
+	glGenBuffers(1, &VBONext);
+
+	// Generate the vertex array for the controls
+	glGenVertexArrays(1, &VAOControls);
+	glGenBuffers(1, &VBOControls);
+
+	glm::vec3 progressBarData[2] = { {0, 0, 0}, {2, 0, 0} };
+	glBindVertexArray(VAOControls);
+	glBindBuffer(GL_ARRAY_BUFFER, VBOControls);
+	glBufferData(GL_ARRAY_BUFFER, 2 * sizeof(glm::vec3), progressBarData, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glGenFramebuffers(1, &glFrameBuffer);
+
+	// You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+	// VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+	// glBindVertexArray(0);
+	glViewport(0, 0, width, height);
+}
+
+void Replayer::updateVAOData()
 {
 	glBindVertexArray(VAO);
 
@@ -542,23 +572,9 @@ void Replayer::update()
 
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
 	glEnableVertexAttribArray(1);
-
-	// Set up the view matrix
-	glm::vec3 eye(0., 0., 1000.0f);
-	glm::vec3 look(0., 0., 0.);
-	glm::vec3 up(0, 1., 0.);
-
-	glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(renderWorldSize / worldSize * 0.55));
-	glm::mat4 view = glm::lookAt(eye, look, up);
-	glm::mat4 projection = glm::perspective(glm::radians(180.0f), (float)width / (float)height, 10.0f, 10000.0f);
-
-	// XXX/bmoody Don't have to set these every frame
-	shader->setMatrix("model", model);
-	shader->setMatrix("view", view);
-	shader->setMatrix("projection", projection);
 }
 
-void Replayer::refresh()
+void Replayer::redraw()
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -582,6 +598,7 @@ void Replayer::refresh()
 
 	glBindVertexArray(VAO);
 	glPointSize(particleRadius);
+
 	glDrawArrays(GL_POINTS, 0, nParticles);
 
 	// SwapWindow

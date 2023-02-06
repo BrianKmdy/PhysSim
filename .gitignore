@@ -1,8 +1,13 @@
-/.vs
-/.vscode
-/build
-/notes
-/tools
+.vs
+.vscode
+build
+notes
+tools
+latest
+
+# vcpkg
+vcpkg_installed
+_deps
 
 # Visual studio
 *.vcxproj*
@@ -14,3 +19,4 @@ cmake_install.cmake
 
 # Misc
 notes.md
+config.yaml
