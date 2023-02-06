@@ -3,12 +3,10 @@
     "version-string": "0.1.0",
     "dependencies": [
         "cxxopts",
-        "glm",
-        "glfw3",
-        "glew",
         "spdlog",
-        "sdl2",
         "yaml-cpp",
-        "freeglut"
+        "glm",
+        "glew",
+        "sdl2"
     ]
   }
