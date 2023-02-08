@@ -42,8 +42,8 @@ std::shared_ptr<Instance> createInstance()
 	std::shared_ptr<Instance> instance = std::make_shared<Instance>();
 
 	// Set the world configuration
-	instance->dimensions = gConfig["dimensions"].as<int>();
-	instance->divisions = gConfig["divisions"].as<int>();
+	instance->dimensions = gConfig["dimensions"].as<uint32_t>();
+	instance->divisions = gConfig["divisions"].as<uint32_t>();
 	instance->nBoxes = instance->divisions * instance->divisions;
 	instance->boxSize = instance->dimensions / instance->divisions;
 	instance->maxBoundary = instance->dimensions / 2;
@@ -119,7 +119,7 @@ std::shared_ptr<Particle[]> createParticles(std::shared_ptr<Instance> instance)
 		if (node["n"].IsDefined()) {
 			float length = node["length"].as<float>();
 			std::uniform_real_distribution<float> dist(-length / 2, length / 2);
-			for (int i = 0; i < node["n"].as<int>(); i++) {
+			for (int i = 0; i < node["n"].as<uint32_t>(); i++) {
 				particles[pId].id = pId;
 				particles[pId].position = make_float2(node["x"].as<float>() + dist(mt), node["y"].as<float>() + dist(mt));
 				particles[pId].velocity = make_float2(node["vx"].as<float>(), node["vy"].as<float>());
@@ -163,7 +163,7 @@ std::shared_ptr<float2[]> createForceField(std::shared_ptr<Instance> instance, s
 	if (gConfig["externalForceFieldDivisions"].IsDefined()) {
 		spdlog::info("Generating external force field");
 
-		instance->externalForceFieldDivisions = gConfig["externalForceFieldDivisions"].as<int>();
+		instance->externalForceFieldDivisions = gConfig["externalForceFieldDivisions"].as<uint32_t>();
 		instance->externalForceBoxSize = instance->dimensions / instance->externalForceFieldDivisions;
 		instance->nExternalForceBoxes = instance->externalForceFieldDivisions * instance->externalForceFieldDivisions;
 
@@ -221,9 +221,12 @@ void loadConfig()
 	if (gConfig["kernel"].IsDefined())
 		gCore.setKernel(gConfig["kernel"].as<std::string>());
 	if (gConfig["framesPerPosition"].IsDefined())
-		gCore.setFramesPerPosition(gConfig["framesPerPosition"].as<int>());
+		gCore.setFramesPerPosition(gConfig["framesPerPosition"].as<uint32_t>());
 	if (gConfig["framesPerState"].IsDefined())
-		gCore.setFramesPerState(gConfig["framesPerState"].as<int>());
+		gCore.setFramesPerState(gConfig["framesPerState"].as<uint32_t>());
+
+	if (gConfig["maxUtilization"].IsDefined())
+		gCore.setMaxUtilization(gConfig["maxUtilization"].as<float>());
 
 	// Create the instance
 	std::shared_ptr<Instance> instance = createInstance();

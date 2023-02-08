@@ -31,27 +31,45 @@
 #include "Operations.cuh"
 #include "Types.h"
 
-void dumpParticles(std::string name, int nParticles, Particle* particles);
-void dumpBoxes(std::string name, int nBoxes, Box* boxes);
-void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* externalForceField);
+void dumpParticles(
+	std::string name,
+	uint32_t nParticles,
+	Particle* particles);
+void dumpBoxes(
+	std::string name,
+	uint32_t nBoxes,
+	Box* boxes);
+void dumpExternalForceField(
+	std::string name,
+	uint32_t nExternalForceBoxes,
+	float2* externalForceField);
 
 class FrameBufferOut : public FrameBuffer<Particle>
 {
 public:
-	FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState, int startFrame);
+	FrameBufferOut(
+		uint32_t queueSize,
+		uint32_t nParticles,
+		uint32_t framesPerPosition,
+		uint32_t framesPerState,
+		uint32_t startFrame);
 
 	virtual void nextFrame(std::shared_ptr<Particle[]>* frame);
 	virtual void run();
 
-	int framesPerPosition;
-	int framesPerState;
+	uint32_t framesPerPosition;
+	uint32_t framesPerState;
 };
 
 class Core
 {
 public:
 	Core();
-    Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes, std::shared_ptr<float2[]> externalForceField);
+    Core(
+		std::shared_ptr<Instance> instance,
+		std::shared_ptr<Particle[]> particles,
+		std::shared_ptr<Box[]> boxes,
+		std::shared_ptr<float2[]> externalForceField);
 	~Core();
 
 	void verifyConfiguration();
@@ -65,11 +83,13 @@ public:
 	void setBoxes(std::shared_ptr<Box[]> boxes);
 	void setExternalForceField(std::shared_ptr<float2[]> externalForceField);
 
-	void setFramesPerPosition(int framesPerPosition);
-	void setFramesPerState(int framesPerState);
+	void setFramesPerPosition(uint32_t framesPerPosition);
+	void setFramesPerState(uint32_t framesPerState);
 
 	void setKernel(std::string kernelName);
-	void setFrame(int frame);
+	void setFrame(uint64_t frame);
+
+	void setMaxUtilization(float maxUtilization);
 
 	void run();
 	void kill();
@@ -83,15 +103,17 @@ private:
 	std::shared_ptr<Box[]> boxes;
 	std::shared_ptr<float2[]> externalForceField;
 
-	int framesPerPosition;
-	int framesPerState;
+	uint32_t framesPerPosition;
+	uint32_t framesPerState;
 
 	std::shared_ptr<FrameBufferOut> frameBuffer;
 
-	int kernel;
+	uint32_t kernel;
 	std::string kernelName;
 
-	int frame;
+	uint64_t frame;
 	std::chrono::milliseconds startTime;
 	std::chrono::milliseconds lastFrameTime;
+
+	float maxUtilization;
 };
