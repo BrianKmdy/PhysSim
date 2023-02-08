@@ -6,7 +6,10 @@
 #include "Core.h"
 #include "Paths.h"
 
-std::string getTimeString(std::chrono::milliseconds time, int decimals = 2) {
+std::string getTimeString(
+	std::chrono::milliseconds time,
+	uint32_t decimals = 2)
+{
 	std::stringstream timeString;
 
 	timeString << std::setprecision(decimals) << std::fixed;
@@ -34,12 +37,15 @@ std::string getTimeString(std::chrono::milliseconds time, int decimals = 2) {
 	return timeString.str();
 }
 
-void dumpParticles(std::string name, int nParticles, Particle* particles)
+void dumpParticles(
+	std::string name,
+	uint32_t nParticles,
+	Particle* particles)
 {
 	YAML::Node data;
 
 	data["nParticles"] = nParticles;
-	for (int i = 0; i < nParticles; i++) {
+	for (uint32_t i = 0; i < nParticles; i++) {
 		data["particles"][i]["id"] = particles[i].id;
 		data["particles"][i]["mass"] = particles[i].mass;
 		data["particles"][i]["x"] = particles[i].position.x;
@@ -51,12 +57,15 @@ void dumpParticles(std::string name, int nParticles, Particle* particles)
 	fout << data;
 }
 
-void dumpBoxes(std::string name, int nBoxes, Box* boxes)
+void dumpBoxes(
+	std::string name,
+	uint32_t nBoxes,
+	Box* boxes)
 {
 	YAML::Node data;
 
 	data["nBoxes"] = nBoxes;
-	for (int i = 0; i < nBoxes; i++) {
+	for (uint32_t i = 0; i < nBoxes; i++) {
 		data["boxes"][i]["mass"] = boxes[i].mass;
 		data["boxes"][i]["mass x"] = boxes[i].centerMass.x;
 		data["boxes"][i]["mass y"] = boxes[i].centerMass.y;
@@ -68,11 +77,14 @@ void dumpBoxes(std::string name, int nBoxes, Box* boxes)
 	fout << data;
 }
 
-void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* externalForceField)
+void dumpExternalForceField(
+	std::string name,
+	uint32_t nExternalForceBoxes,
+	float2* externalForceField)
 {
 	YAML::Node data;
 
-	for (int i = 0; i < nExternalForceBoxes; i++) {
+	for (uint32_t i = 0; i < nExternalForceBoxes; i++) {
 		data["forcefield"][i]["x"] = std::to_string(externalForceField[i].x);
 		data["forcefield"][i]["y"] = std::to_string(externalForceField[i].y);
 	}
@@ -81,7 +93,12 @@ void dumpExternalForceField(std::string name, int nExternalForceBoxes, float2* e
 	fout << data;
 }
 
-FrameBufferOut::FrameBufferOut(int queueSize, int nParticles, int framesPerPosition, int framesPerState, int startFrame):
+FrameBufferOut::FrameBufferOut(
+	uint32_t queueSize,
+	uint32_t nParticles,
+	uint32_t framesPerPosition,
+	uint32_t framesPerState,
+	uint32_t startFrame):
 	FrameBuffer<Particle>(queueSize, nParticles, framesPerPosition),
 	framesPerPosition(framesPerPosition),
 	framesPerState(framesPerState)
@@ -173,7 +190,11 @@ Core::Core():
 {
 }
 
-Core::Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> particles, std::shared_ptr<Box[]> boxes, std::shared_ptr<float2[]> externalForceField):
+Core::Core(
+	std::shared_ptr<Instance> instance,
+	std::shared_ptr<Particle[]> particles,
+	std::shared_ptr<Box[]> boxes,
+	std::shared_ptr<float2[]> externalForceField):
 	alive(true),
 	instance(instance),
 	particles(particles),
@@ -186,7 +207,8 @@ Core::Core(std::shared_ptr<Instance> instance, std::shared_ptr<Particle[]> parti
 	kernel(Kernel::unknown),
 	kernelName("not set"),
 	startTime(std::chrono::milliseconds(0)),
-	lastFrameTime(std::chrono::milliseconds(0))
+	lastFrameTime(std::chrono::milliseconds(0)),
+	maxUtilization(1.)
 {
 }
 
@@ -268,6 +290,11 @@ void Core::verifyConfiguration()
 	if (framesPerState % framesPerPosition != 0)
 		errors["framesPerState"].push_back("must be a multiple of framesPerPosition");
 
+	// Check the max utilization
+	values["maxUtilization"] = std::to_string(maxUtilization);
+	if (maxUtilization < 0 || maxUtilization > 1)
+		errors["maxUtilization"].push_back("must be between 0 and 1");
+
 	for (auto& pair : values) {
 		if (errors.find(pair.first) == errors.end()) {
 			spdlog::info(pair.first + ": " + pair.second);
@@ -327,25 +354,30 @@ void Core::setExternalForceField(std::shared_ptr<float2[]> externalForceField)
 	this->externalForceField = externalForceField;
 }
 
+void Core::setFramesPerPosition(uint32_t framesPerPosition)
+{
+	this->framesPerPosition = framesPerPosition;
+}
+
+void Core::setFramesPerState(uint32_t framesPerState)
+{
+	this->framesPerState = framesPerState;
+}
+
 void Core::setKernel(std::string kernelName)
 {
 	this->kernel = Kernel::fromString[kernelName];
 	this->kernelName = kernelName;
 }
 
-void Core::setFrame(int frame)
+void Core::setFrame(uint64_t frame)
 {
 	this->frame = frame;
 }
 
-void Core::setFramesPerPosition(int framesPerPosition)
+void Core::setMaxUtilization(float maxUtilization)
 {
-	this->framesPerPosition = framesPerPosition;
-}
-
-void Core::setFramesPerState(int framesPerState)
-{
-	this->framesPerState = framesPerState;
+	this->maxUtilization = maxUtilization;
 }
 
 std::chrono::milliseconds Core::writeToDisk()
@@ -363,6 +395,7 @@ void Core::run()
 	auto frameTime = std::chrono::milliseconds(0);
 	auto kernelTime = std::chrono::milliseconds(0);
 	auto writeTime = std::chrono::milliseconds(0);
+	auto sleepTime = std::chrono::milliseconds(0);
 	int framesThisPeriod = 0;
 
 	// Start the frame buffer and write the initial configuration to disk
@@ -394,18 +427,34 @@ void Core::run()
 
 		// Calculate the write time and total frame time
 		writeTime += writeToDisk();
+
+		// Sleep if maxUtilization is less than 1
+		auto currentFrameTime = getMilliseconds() - lastFrameTime;
+		if (maxUtilization < 1) {
+			auto currentSleepTime = std::chrono::milliseconds(
+				static_cast<int>(currentFrameTime.count() / maxUtilization - currentFrameTime.count()));
+			sleepTime += currentSleepTime;
+			std::this_thread::sleep_for(currentSleepTime);
+		}
+
 		frameTime += (getMilliseconds() - lastFrameTime);
+		lastFrameTime = getMilliseconds();
 
 		// Print stats
 		if (frameTime >= std::chrono::seconds(1)) {
-			spdlog::info("[{}] Frame {}: {} frame ({} kernel, {} write)", getTimeString(getMilliseconds() - startTime), frame, getTimeString(frameTime / framesThisPeriod), getTimeString(kernelTime / framesThisPeriod), getTimeString(writeTime / framesThisPeriod));
+			spdlog::info("[{}] Frame {}: {} frame ({} kernel, {} sleep, {} write)",
+				getTimeString(getMilliseconds() - startTime),
+				frame,
+				getTimeString(frameTime / framesThisPeriod),
+				getTimeString(kernelTime / framesThisPeriod),
+				getTimeString(sleepTime / framesThisPeriod),
+				getTimeString(writeTime / framesThisPeriod));
 			frameTime = std::chrono::milliseconds(0);
 			kernelTime = std::chrono::milliseconds(0);
 			writeTime = std::chrono::milliseconds(0);
+			sleepTime = std::chrono::milliseconds(0);
 			framesThisPeriod = 0;
 		}
-
-		lastFrameTime = getMilliseconds();
 	}
 
 	spdlog::info("Simulation shutting down");
